@@ -1,0 +1,5 @@
+# SERVING_ENDPOINT is set by the bundle from agent_serving_endpoint (see resources/app-resource.yml config.env).
+# Do not set env here or it can override the bundle and the app will crash.
+command:
+  - python
+  - app.py

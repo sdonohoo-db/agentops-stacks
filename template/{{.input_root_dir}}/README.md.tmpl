@@ -1,0 +1,100 @@
+# {{ .input_root_dir }}
+
+This directory contains an Agent project based on
+[AgentOps Stacks](https://github.com/databricks/mlops-stacks),
+defining a production-grade pipeline for data preparation, agent development, evaluation, and deployment.
+
+The "Getting Started" docs can be found at https://docs.databricks.com/dev-tools/bundles/mlops-stacks.html.
+
+{{- if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}
+![AgentOps Stacks diagram](docs/images/mlops-stack-summary.png)
+{{- end }}
+
+
+## Code structure
+This project contains the following components:
+
+| Component                  | Description                                                                                                                                                                                                                                                                                                                                             |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+{{- if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}
+| Agent Code                    | Example Agent project code, with unit tested Python modules and notebooks                                                                                                                                                                                                                                                                             |
+| Agent Resources as Code | Agent pipeline resources (data preparation, agent development, app deployment) configured and deployed through [databricks CLI bundles](https://docs.databricks.com/dev-tools/cli/bundle-cli.html)                                                                                              |
+{{- end }}
+| CI/CD                      | {{ if (eq .input_cicd_platform `github_actions`) }}[GitHub Actions](https://github.com/actions) workflows to test and deploy agent code and resources
+                               {{ else if (eq .input_cicd_platform `azure_devops`) }}[Azure DevOps Pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines) to test and deploy agent code and resources
+                               {{ else if (eq .input_cicd_platform `gitlab`) }}[Gitlab Pipelines](https://docs.gitlab.com/ee/ci/pipelines/) to test and deploy agent code and resources
+                               {{ end }} |
+
+contained in the following files:
+
+```
+{{ .input_root_dir }}        <- Bundle root (project code lives here; no project subdirectory).
+│
+{{- if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}
+├── requirements.txt        <- Python dependencies for agent code.
+├── databricks.yml          <- Root bundle file for the Agent project.
+├── data_preparation        <- Data ingestion, preprocessing, and vector search.
+├── agent_development       <- Agent creation and evaluation.
+├── agent_deployment        <- Model serving and Databricks App front end.
+├── tests                   <- Tests for the Agent project.
+├── resources               <- Agent resource config definitions (jobs, apps, MLflow artifacts).
+│   ├── data-preparation-resource.yml
+│   ├── agents-artifacts-resource.yml
+│   ├── agent-resource.yml
+│   ├── app-resource.yml
+│   ├── app-deployment-resource.yml
+│
+{{- end }}
+│
+{{- if or (eq .input_cicd_platform `github_actions`) (eq .input_cicd_platform `github_actions_for_github_enterprise_servers`) }}
+├── .github                     <- Configuration folder for CI/CD using GitHub Actions. {{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}} The CI/CD workflows deploy Agent resources defined in the `./resources/*` folder with databricks CLI bundles.{{ end }}
+{{- else if (eq .input_cicd_platform `azure_devops`) }}
+├── .azure                      <- Configuration folder for CI/CD using Azure DevOps Pipelines. {{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}} The CI/CD workflows deploy Agent resources defined in the `./resources/*` folder with databricks CLI bundles.{{ end }}
+{{- else if (eq .input_cicd_platform `gitlab`) }}
+├── .gitlab                      <- Configuration folder for CI/CD using Gitlab Pipelines. {{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}} The CI/CD workflows deploy Agent resources defined in the `./resources/*` folder with databricks CLI bundles.{{ end }}
+{{- end }}
+│
+├── docs                        <- Contains documentation for the repo.
+│
+├── cicd.tar.gz                 <- Contains CI/CD bundle that should be deployed by deploy-cicd.yml to set up CI/CD for projects.
+```
+
+## Using this repo
+
+{{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}
+This project comes with example Agent code for data preparation, agent development, evaluation, and deployment.
+If you're just getting started with this repo for a brand new Agent project, we recommend
+adapting the provided example code to your Agent problem. Follow the instructions from
+this README and [resources/README_agentops.md](resources/README_agentops.md).
+{{ end }}
+
+When you're ready to deploy production pipelines, ask your ops team to follow the [AgentOps setup guide](docs/agentops-setup.md) to configure CI/CD and deploy production Agent pipelines.
+
+| Role                          | Goal                                                                         | Docs                                                                                                                                                                |
+|-------------------------------|------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Developer                     | Get started writing Agent code for a brand new project                          | {{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}This README and [resources/README_agentops.md](resources/README_agentops.md) {{ else }} README when project is initialized {{ end }}|
+| Ops / DevOps                  | Set up CI/CD for the current Agent project   | [AgentOps setup guide](docs/agentops-setup.md)                                                                                                                            |
+| Developer                     | Modify production Agent resources (jobs, app)  | {{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}[Agent resources README](resources/README_agentops.md) {{ else }} Agent resources README when project is initialized {{ end }} |
+
+## Setting up CI/CD
+This stack comes with a workflow to set up CI/CD for projects that can be found in
+{{ if (or (eq .input_cicd_platform `github_actions`) (eq .input_cicd_platform `github_actions_for_github_enterprise_servers`)) }}
+`.github/workflows/deploy-cicd.yml`.
+{{ else if (eq .input_cicd_platform `azure_devops`)}}
+`.azure/devops-pipelines/deploy-cicd.yml`.
+{{ else if (eq .input_cicd_platform `gitlab`)}}
+`.gitlab/pipelines/{{.input_project_name}}-triggers-cicd.yml`.
+{{ end }}
+
+To set up CI/CD for projects that were created with the `Project_Only` parameter,
+run the above mentioned workflow, specifying the `project_name` as a parameter:
+
+1. Setup your repository by initializing AgentOps Stacks via Databricks CLI with the `CICD_and_Project` or `CICD_Only` parameter.
+2. Follow the [AgentOps Setup Guide](./docs/agentops-setup.md) to setup authentication and get the repo ready for CI/CD.
+3. Create a new project by initializing AgentOps Stacks again but this time with the `Project_Only` parameter.
+4. Run the `deploy-cicd.yml` workflow with the `project_name` parameter set to the name of the project you want to set up CI/CD for.
+
+{{ if (eq .input_setup_cicd_and_project `CICD_and_Project`)}}
+NOTE: This project has already been initialized with an instantiation of the above workflow, so there's no
+need to run it again for project `{{.input_project_name}}`.
+{{ end }}

@@ -1,0 +1,159 @@
+# Databricks notebook source
+# MAGIC %load_ext autoreload
+# MAGIC %autoreload 2
+# MAGIC # Enables autoreload; learn more at https://docs.databricks.com/en/files/workspace-modules.html#autoreload-for-python-modules
+# MAGIC # To disable autoreload; run %autoreload 0
+
+# COMMAND ----------
+
+# DBTITLE 1,Data Ingestion Pipeline - Overview
+###################################################################################
+# Data Ingestion Pipeline
+#
+# This pipeline is designed to process raw documentation data from a specified data source URL.
+# The data is stored in a Unity Catalog within a specified database for later processing.
+#
+# Parameters:
+# * uc_catalog (required)                     - Name of the Unity Catalog containing the input data
+# * schema (required)                         - Name of the schema inside the Unity Catalog
+# * raw_data_table (required)                 - Name of the raw data table inside the database of the Unity Catalog
+# * data_source_url (required)                - URL of the data source. Default is "https://docs.databricks.com/en/doc-sitemap.xml"
+#
+# Widgets:
+# * Unity Catalog: Text widget to input the name of the Unity Catalog
+# * Schema: Text widget to input the name of the database inside the Unity Catalog
+# * Raw data table: Text widget to input the name of the raw data table inside the database of the Unity Catalog
+# * Data Source URL: Text widget to input the URL of the data source
+#
+# Usage:
+# 1. Set the appropriate values for the widgets.
+# 2. Run the pipeline to collect and store the raw documentation data.
+#
+##################################################################################
+
+# COMMAND ----------
+
+# DBTITLE 1,Install Prerequisites
+# Install prerequisite packages
+%pip install -r ../../../requirements.txt
+
+# COMMAND ----------
+
+# DBTITLE 1,Widget creation
+# List of input args needed to run this notebook as a job
+# Provide them via DB widgets or notebook arguments in your DAB resources
+
+# A Unity Catalog containing the input data
+dbutils.widgets.text(
+    "uc_catalog",
+    "",
+    label="Unity Catalog",
+)
+# Name of schema
+dbutils.widgets.text(
+    "schema",
+    "",
+    label="Schema",
+)
+# Name of raw data table
+dbutils.widgets.text(
+    "raw_data_table",
+    "raw_documentation",
+    label="Raw data table",
+)
+
+# Data source url
+dbutils.widgets.text(
+    "data_source_url",
+    "https://docs.databricks.com/en/doc-sitemap.xml",
+    label="Data Source URL",
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Define input and output variables
+uc_catalog = dbutils.widgets.get("uc_catalog")
+schema = dbutils.widgets.get("schema")
+raw_data_table = dbutils.widgets.get("raw_data_table")
+data_source_url = dbutils.widgets.get("data_source_url")
+
+assert uc_catalog != "", "uc_catalog notebook parameter must be specified"
+assert schema != "", "schema notebook parameter must be specified"
+assert raw_data_table != "", "raw_data_table notebook parameter must be specified"
+assert data_source_url != "", "data_source_url notebook parameter must be specified"
+
+# COMMAND ----------
+
+# DBTITLE 1,Use the catalog and database specified in the notebook parameters
+spark.sql(f"""CREATE SCHEMA IF NOT EXISTS `{uc_catalog}`.`{schema}`""")
+
+spark.sql(f"""USE `{uc_catalog}`.`{schema}`""")
+
+# COMMAND ----------
+
+# DBTITLE 1,Download and store data to UC (inline fetch; no external utils required)
+from pyspark.sql.types import StringType
+from pyspark.sql.functions import pandas_udf
+from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import pandas as pd
+
+_retries = Retry(total=3, backoff_factor=3, status_forcelist=[429])
+
+if not spark.catalog.tableExists(f"{raw_data_table}") or spark.table(f"{raw_data_table}").isEmpty():
+    response = requests.get(data_source_url)
+    root = ET.fromstring(response.content)
+    urls = [loc.text for loc in root.findall(".//{http://www.sitemaps.org/schemas/sitemap/0.9}loc")]
+
+    df_urls = spark.createDataFrame(urls, StringType()).toDF("url").repartition(10)
+
+    @pandas_udf("string")
+    def fetch_html_udf(urls: pd.Series) -> pd.Series:
+        adapter = HTTPAdapter(max_retries=_retries)
+        http = requests.Session()
+        http.mount("http://", adapter)
+        http.mount("https://", adapter)
+        def fetch_html(url):
+            try:
+                r = http.get(url)
+                return r.content if r.status_code == 200 else None
+            except requests.RequestException:
+                return None
+        with ThreadPoolExecutor(max_workers=200) as executor:
+            results = list(executor.map(fetch_html, urls))
+        return pd.Series(results)
+
+    @pandas_udf("string")
+    def download_web_page_udf(html_contents: pd.Series) -> pd.Series:
+        def extract_text(html_content):
+            if html_content:
+                soup = BeautifulSoup(html_content, "html.parser")
+                article_div = soup.find("div", class_="theme-doc-markdown markdown")
+                if article_div:
+                    return str(article_div).strip()
+            return None
+        return html_contents.apply(extract_text)
+
+    doc_articles = (
+        df_urls.withColumn("html_content", fetch_html_udf("url"))
+        .withColumn("text", download_web_page_udf("html_content"))
+        .select("url", "text")
+        .filter("text IS NOT NULL")
+    )
+    if doc_articles.isEmpty():
+        raise Exception(
+            "Dataframe is empty. Check the data source and HTML structure; "
+            "article_div = soup.find('div', class_='theme-doc-markdown markdown') may need updating."
+        )
+
+    doc_articles.write.mode('overwrite').saveAsTable(f"{raw_data_table}")
+    doc_articles.display()
+
+
+# COMMAND ----------
+
+dbutils.notebook.exit(0)

@@ -1,0 +1,15 @@
+resources:
+  apps:
+    {{template `project_name_alphanumeric_underscore` .}}_chatbot:
+      name: ${bundle.target}-${var.app_name}
+      description: "${bundle.name} Chatbot Databricks App - ${bundle.target} environment"
+      source_code_path: ../agent_deployment/chat_interface_deployment
+      config:
+        command: ["python", "app.py"]
+        env:
+          - name: SERVING_ENDPOINT
+            value: ${var.agent_serving_endpoint}
+      # Optional: Add permissions if needed
+      # permissions:
+      #   - level: CAN_USE
+      #     group_name: users

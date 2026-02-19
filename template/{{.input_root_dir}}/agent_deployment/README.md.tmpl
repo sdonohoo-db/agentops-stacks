@@ -1,0 +1,9 @@
+# Agent Deployment
+
+## Model Serving
+
+The model serving notebook deploys the agent using `agents.deploy()`. A "Grant App Permission to Query Endpoint" block looks up Databricks Apps whose names contain the bundle name and "chatbot", then grants their service principals `CAN_QUERY` on the serving endpoint. If no matching app is found, you may need to grant the app service principal permission manually.
+
+## Chat Interface
+
+The Chat Interface is a Databricks App built with Dash. It connects to the agent serving endpoint. Set the bundle variable `agent_serving_endpoint` in your target to the endpoint name so the app receives `SERVING_ENDPOINT` at runtime (see chat_interface_deployment/README.md).

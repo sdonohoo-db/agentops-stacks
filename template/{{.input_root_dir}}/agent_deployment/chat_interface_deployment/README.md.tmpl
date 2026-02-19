@@ -1,0 +1,59 @@
+# Databricks Chatbot Application
+
+A modern, responsive chat interface that connects to Databricks AI serving endpoints, built with Dash and Python.
+
+## Features
+
+- Easy deployment as a Databricks App
+- Real-time chat interactions with Databricks AI models
+- Ability to collect user feedback on the responses
+    - Thumbs up / Thumbs down
+    - Additional feedback
+
+## Deployment
+
+This app is deployed as part of the Databricks Asset Bundle.
+
+### Step 1: Set the serving endpoint (required)
+
+The app reads the agent serving endpoint name from the bundle variable `agent_serving_endpoint`. Set it in your target (e.g. in `databricks.yml` under `targets.dev.variables`) to the name of the endpoint created by the model serving notebook, then deploy.
+
+### Step 2: Deploy the Bundle
+
+```bash
+databricks bundle deploy -t dev
+```
+
+This will create/update the app definition, sync the app source code, and set `SERVING_ENDPOINT` from `agent_serving_endpoint` (via the app resource `config.env`). If `agent_serving_endpoint` is empty, the app will not start until you set it and redeploy.
+
+### Step 3: Start the App
+
+**Important**: Bundle deploy does NOT automatically start the app. You must start it manually:
+
+```bash
+# Option 1: Using Databricks CLI (use the actual app name for your bundle/target, e.g. dev-<project>-chatbot)
+databricks apps start dev-{{ .input_project_name | replace "_" "-" }}-chatbot
+
+# Option 2: Using the Workspace UI
+# Navigate to Workspace > Apps > [your app name] > Click "Start"
+```
+
+### App name pattern
+
+The app name is `{target}-{app_name}` where `app_name` is a dash-only segment (e.g. `{{ .input_project_name | replace "_" "-" }}-chatbot`). Examples:
+
+- Dev: `dev-{{ .input_project_name | replace "_" "-" }}-chatbot`
+- Staging: `staging-{{ .input_project_name | replace "_" "-" }}-chatbot`
+- Prod: `prod-{{ .input_project_name | replace "_" "-" }}-chatbot`
+
+### Verifying deployment
+
+After starting the app, check its status:
+
+```bash
+# Check app status (use your app name)
+databricks apps get dev-{{ .input_project_name | replace "_" "-" }}-chatbot
+
+# View app logs (if needed)
+databricks apps logs dev-{{ .input_project_name | replace "_" "-" }}-chatbot
+```
