@@ -1,0 +1,42 @@
+# CI/CD Pipeline Definitions — GitLab
+
+This directory contains GitLab CI/CD pipeline definitions for the `{{ .input_project_name }}` AgentOps project. Pipelines cover unit and integration testing, bundle validation, and multi-environment deployment of Databricks resources (jobs, apps, MLflow artifacts).
+
+For full setup instructions see the [AgentOps Setup Guide](../../docs/agentops-setup.md).
+
+## Pipeline Entry Point
+
+GitLab expects its pipeline file at the project root. Configure the custom CI/CD configuration file:
+
+> **Settings → CI/CD → General Pipelines → CI/CD configuration file**
+> Set to: `.gitlab/pipelines/{{ .input_project_name }}-triggers-cicd.yml`
+
+## Pipeline Summary
+
+| File | Trigger | Purpose |
+|------|---------|---------|
+| `{{ .input_project_name }}-triggers-cicd.yml` | MR / branch push | Orchestrates the pipelines below based on branch and event type |
+| `{{ .input_project_name }}-bundle-ci.yml` | Called by triggers on MR to `{{ .input_default_branch }}` | Unit tests + integration test (deploys `test` target to staging workspace) |
+| `{{ .input_project_name }}-bundle-cd-staging.yml` | Called by triggers on push to `{{ .input_default_branch }}` | Validates and deploys `staging` target to staging workspace |
+| `{{ .input_project_name }}-bundle-cd-prod.yml` | Called by triggers on push to `{{ .input_release_branch }}` | Validates and deploys `prod` target to production workspace |
+
+## Required CI/CD Variables
+
+Add these [CI/CD variables](https://docs.gitlab.com/ee/ci/variables/) in GitLab (Settings → CI/CD → Variables). Scope each variable to the matching environment and set visibility to **masked and hidden**.
+
+| Variable | Scope | Description |
+|----------|-------|-------------|
+| `SP_CLIENT_ID` | `dev`, `stage`, `production` | Databricks service principal client ID |
+| `SP_CLIENT_SECRET` | `dev`, `stage`, `production` | Databricks service principal client secret |
+
+## Branch → Environment Mapping
+
+| Branch | Environment | Workspace |
+|--------|-------------|-----------|
+| MR to `{{ .input_default_branch }}` | `test` (CI integration test) | Staging workspace |
+| `{{ .input_default_branch }}` | `staging` | Staging workspace |
+| `{{ .input_release_branch }}` | `prod` | Production workspace |
+
+## Docker Image
+
+Pipelines run on the image specified by `{{ .input_docker_image }}`. The `.gitlab/docker/` directory contains a `Dockerfile` and `push_image_to_gitlab.sh` to build and push a custom image with Databricks CLI, Python 3.10, and Java pre-installed. The same image can be shared across multiple projects.

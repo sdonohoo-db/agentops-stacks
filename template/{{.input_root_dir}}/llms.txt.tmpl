@@ -1,0 +1,72 @@
+# {{ .input_project_name }}
+
+> A production-ready Databricks AI agent project. Deploys a LangGraph RAG agent using Databricks Vector Search, Unity Catalog function tools, MLflow 3 evaluation, and Mosaic AI model serving — with a Dash chat UI as a Databricks App. Managed as a Databricks Asset Bundle (DAB) with dev, staging, and prod environments.
+
+**Stack:** Databricks Asset Bundles · MLflow 3 · LangGraph · Mosaic AI · Unity Catalog · Python 3.10+
+**Generated from:** [AgentOps Stacks](https://github.com/databricks/mlops-stacks)
+
+## Deployment
+
+- [README](README.md): Complete deployment walkthrough — prerequisites, step-by-step CLI commands, post-deployment configuration, and customization table
+- [AgentOps Setup Guide](docs/agentops-setup.md): CI/CD configuration — service principals, secrets, branch policies, workspace prerequisites
+- [Resource configuration guide](resources/README_agentops.md): DAB bundle concepts, environment target reference, local dev workflow, config change process
+
+## Configuration
+
+- [databricks.yml](databricks.yml): Bundle root — set `targets.dev.workspace.host` before first deploy; set `agent_serving_endpoint` after ModelServing completes and redeploy
+- [data_preparation/DataIngestion.py](data_preparation/DataIngestion.py): Change `data_source_url` widget default to point at your data source
+- [agent_development/app.py](agent_development/app.py): Modify LLM endpoint, UC function tool list, and Vector Search retriever config
+- [agent_development/Agent.py](agent_development/Agent.py): Add, remove, or redefine Unity Catalog function tools
+
+## Pipeline Notebooks
+
+Execute these in order. Each notebook is also run automatically by the DAB jobs.
+
+- [data_preparation/DataIngestion.py](data_preparation/DataIngestion.py): **Step 1** — Fetches XML sitemap, scrapes each page with BeautifulSoup, writes raw text rows to `{{ .input_schema_name }}.raw_documentation`
+- [data_preparation/DataPreprocessing.py](data_preparation/DataPreprocessing.py): **Step 2** — Reads raw table, splits documents into chunks using HuggingFace tokenizer, writes `{{ .input_schema_name }}.databricks_documentation`
+- [data_preparation/VectorSearch.py](data_preparation/VectorSearch.py): **Step 3** — Creates or syncs a Databricks Vector Search index on the preprocessed table using `databricks-gte-large-en` embeddings
+- [agent_development/Agent.py](agent_development/Agent.py): **Step 4** — Creates UC SQL functions, writes `ModelConfig.yml`, logs `app.py` as a `ResponsesAgent` with MLflow, registers the model
+- [agent_development/AgentEvaluation.py](agent_development/AgentEvaluation.py): **Step 5** — Loads the registered model, runs `mlflow.genai.evaluate()` with LLM-as-a-judge scorers, logs results to the MLflow experiment
+- [agent_deployment/ModelServing.py](agent_deployment/ModelServing.py): **Step 6** — Calls `agents.deploy()` to create a Mosaic AI serving endpoint; grants the Databricks App service principal `CAN_QUERY`
+
+## DAB Jobs (CLI run commands)
+
+- [resources/data-preparation-resource.yml](resources/data-preparation-resource.yml): `data_preprocessing_job` — runs Steps 1–3 in sequence; scheduled daily at 5am UTC
+- [resources/agent-resource.yml](resources/agent-resource.yml): `agent_development_job` — runs Steps 4–6 in sequence; scheduled daily at 6am UTC
+
+## Chat Interface
+
+- [agent_deployment/chat_interface_deployment/README.md](agent_deployment/chat_interface_deployment/README.md): App startup instructions — how to set the serving endpoint variable, deploy, and start the app
+- [agent_deployment/chat_interface_deployment/app.py](agent_deployment/chat_interface_deployment/app.py): Dash chat UI — reads `SERVING_ENDPOINT` from environment (injected by the bundle from `agent_serving_endpoint` variable)
+- [agent_deployment/chat_interface_deployment/app.yaml](agent_deployment/chat_interface_deployment/app.yaml): Databricks App command config
+
+## CI/CD
+{{- if or (eq .input_cicd_platform `github_actions`) (eq .input_cicd_platform `github_actions_for_github_enterprise_servers`) }}
+
+- [.github/workflows/README.md](.github/workflows/README.md): Workflow list, required GitHub secrets, and branch-to-environment mapping table
+{{- else if (eq .input_cicd_platform `azure_devops`) }}
+
+- [.azure/devops-pipelines/README.md](.azure/devops-pipelines/README.md): Pipeline list, required variable group secrets, and build policy setup instructions
+{{- else if (eq .input_cicd_platform `gitlab`) }}
+
+- [.gitlab/README.md](.gitlab/README.md): Pipeline list, GitLab entry point configuration, and required CI/CD variable scoping
+{{- end }}
+
+## Agent Implementation
+
+- [agent_development/app.py](agent_development/app.py): Core agent — `LangGraphResponsesAgent` subclass using `ChatDatabricks`, `UCFunctionToolkit`, and `VectorSearchRetrieverTool`
+- [agent_development/README.md](agent_development/README.md): Architecture notes — how `app.py` and `Agent.py` relate, UC function tool calling pattern, MLflow logging flow
+- [agent_development/agent_requirements.txt](agent_development/agent_requirements.txt): Agent Python dependencies (separate from data prep `requirements.txt`)
+
+## Data Preparation
+
+- [data_preparation/README.md](data_preparation/README.md): Notebook descriptions, widget parameters reference, and customization guide for alternative data sources
+
+## Coding Agent Instructions
+
+- [AGENTS.md](AGENTS.md): Project conventions and commands for AI coding agents — deployment steps, variable reference, notebook path rules, what not to modify
+
+## Optional
+
+- [agent_deployment/README.md](agent_deployment/README.md): Model serving details and chat app deployment notes
+- [resources/README_agentops.md](resources/README_agentops.md): Deep-dive on DAB schema, environment-based variable overrides, destroy caveats

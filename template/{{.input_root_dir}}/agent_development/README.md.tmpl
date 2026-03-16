@@ -1,0 +1,35 @@
+# Agent Development
+
+This directory contains the agent implementation and evaluation notebooks. They run in sequence as tasks within the `agent-development-job` (see [`resources/agent-resource.yml`](../resources/agent-resource.yml), task keys `AgentDevelopment` → `AgentEvaluation`).
+
+## Files
+
+| File | Task key | What it does |
+|------|----------|--------------|
+| `app.py` | — | The agent implementation. Defines `LangGraphResponsesAgent` (a `mlflow.pyfunc.ResponsesAgent` subclass) using `ChatDatabricks`, `UCFunctionToolkit`, and `VectorSearchRetrieverTool`. Instantiated as `AGENT` at module load. |
+| `Agent.py` | `AgentDevelopment` | Creates Unity Catalog functions (`ask_ai`, `summarize`, `translate`) from inline SQL, writes `ModelConfig.yml`, logs the agent with `mlflow.pyfunc.log_model(python_model="app.py")`, and registers it with a model alias. |
+| `AgentEvaluation.py` | `AgentEvaluation` | Loads the registered model, runs `mlflow.genai.evaluate()` with LLM-as-a-judge scorers against a held-out eval dataset, and logs results to the MLflow experiment. |
+| `agent_requirements.txt` | — | Agent-specific Python dependencies. Kept separate from the root `requirements.txt` to isolate package versions and avoid conflicts with data preparation dependencies. |
+
+## How the agent is logged
+
+`Agent.py` imports the agent from `app.py` at logging time:
+
+```python
+from app import AGENT
+mlflow.pyfunc.log_model(python_model="app.py", ...)
+```
+
+`app.py` and `Agent.py` are in the same directory, so this import works correctly when the notebook runs on Databricks. The `ModelConfig.yml` file is written and read from the same working directory (the `agent_development/` folder on the cluster).
+
+## Tool calling
+
+The agent uses [Unity Catalog functions](https://docs.databricks.com/aws/en/generative-ai/agent-framework/create-custom-tool) as tools, loaded via `UCFunctionToolkit`. `Agent.py` creates these UC functions from inline SQL templates before logging the model. You can add, remove, or replace functions in the tool list inside `app.py`.
+
+Vector Search retrieval is configured via `vector_search_config` in `ModelConfig.yml` and handled by `VectorSearchRetrieverTool` — it is not a separate UC function.
+
+## Running manually
+
+Both notebooks accept Databricks widget parameters that match the `base_parameters` in the job definition. Run them interactively in your dev workspace after the data preparation pipeline has completed and a Vector Search index exists.
+
+For deployment and job setup, see [`resources/README_agentops.md`](../resources/README_agentops.md).
