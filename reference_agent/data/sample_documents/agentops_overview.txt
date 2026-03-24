@@ -1,0 +1,42 @@
+AgentOps Framework Overview
+
+The AgentOps Redux framework provides a production-ready approach to developing and deploying AI agents on Databricks. It addresses the most common challenges teams face when taking agents from prototype to production.
+
+Key Capabilities
+
+Environment Promotion
+The framework uses a three-environment architecture: development, staging, and production. Code moves between environments through Git branch merges, not manual steps. The dev branch maps to the development workspace, main to staging, and release to production.
+
+MLflow Observability
+Every agent interaction is traced using MLflow. This includes development evaluations, CI test results, and production inference traces. Having traces at every stage makes it possible to compare behavior across environments and detect quality regressions early.
+
+Automated Evaluation
+Before any code can be promoted to the next environment, it must pass automated evaluation gates. The framework uses mlflow.genai.evaluate() with standard judges (correctness, groundedness, relevance, safety) and supports custom domain-specific judges.
+
+Unity Catalog Governance
+All data assets are managed through Unity Catalog. The development workspace has read-only access to the production catalog, preventing accidental data corruption. All tools, functions, and models are registered as UC assets with proper versioning.
+
+Multi-Agent Architecture
+The framework supports multiple specialized agents behind a shared router. The router classifies incoming requests and dispatches them to the appropriate agent. Adding new agents does not require changing the client interface.
+
+Refund and Return Policy
+
+Our standard refund policy allows returns within 30 days of purchase for any unused items in original condition. Digital products and software licenses are non-refundable after activation. For defective items, we offer replacement or full refund regardless of time elapsed. To initiate a return, contact support@example.com with your order number and reason for return.
+
+Data Privacy Policy
+
+We collect only the minimum data necessary to provide our services. User data is encrypted at rest and in transit. We do not sell user data to third parties. Data retention is limited to 12 months for inactive accounts. Users can request data deletion by submitting a request to privacy@example.com.
+
+Service Level Agreement
+
+Our platform targets 99.9% uptime for production workloads. Planned maintenance windows are communicated at least 72 hours in advance via email and status page. In the event of an unplanned outage, we commit to posting status updates every 30 minutes until resolution. Support response times: P1 (system down) within 1 hour, P2 (degraded) within 4 hours, P3 (non-critical) within 24 hours.
+
+Getting Started Checklist
+
+1. Configure Databricks CLI with workspace credentials
+2. Create Unity Catalog catalogs (agentops_dev, agentops_prod)
+3. Run: python scripts/deploy.py --target dev
+4. Verify deployment: python scripts/verify.py --target dev --test-inference
+5. Run evaluation: python reference_agent/eval/run_eval.py --sample 5
+6. Review results in MLflow experiments
+7. Commit to dev branch to trigger staging CI

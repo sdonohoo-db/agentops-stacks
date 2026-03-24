@@ -1,0 +1,44 @@
+"""
+{agent_name_title} Agent Tools
+Registration of Unity Catalog tools for {agent_name}.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Optional
+
+from framework.agent_development.tool_registry import ToolRegistry, ToolSpec
+from framework.config import get_config
+
+logger = logging.getLogger(__name__)
+
+
+def register_{agent_name}_tools(
+    config: Optional[Any] = None,
+    spark: Optional[Any] = None,
+) -> ToolRegistry:
+    """Register {agent_name} tools in Unity Catalog."""
+    cfg = config or get_config()
+    registry = ToolRegistry(agent_name="{agent_name}", config=cfg, spark=spark)
+
+    # TODO: Add your tools here
+    # registry.register(ToolSpec(
+    #     name="my_tool",
+    #     description="What this tool does",
+    #     input_params="query STRING",
+    #     return_type="STRING",
+    #     body="return query.upper()",
+    # ))
+
+    logger.info("Registered %d {agent_name} tools", len(registry.get_tool_names()))
+    return registry
+
+
+if __name__ == "__main__":
+    import os
+    os.environ.setdefault("AGENTOPS_ENV", "dev")
+    registry = register_{agent_name}_tools()
+    print("Registered tools:")
+    for tool in registry.get_tool_names():
+        print(f"  {{tool}}")

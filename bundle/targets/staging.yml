@@ -1,0 +1,21 @@
+targets:
+  staging:
+    mode: production
+    workspace:
+      host: ${workspace.host}
+    variables:
+      dev_catalog: agentops_dev
+      prod_catalog: agentops_prod
+      model_serving_endpoint: agentops-staging-endpoint
+      vector_search_endpoint: agentops-vs-staging-endpoint
+      # Staging mirrors prod retrieval settings to catch regressions before promotion
+      query_type: hybrid
+      enable_reranking: "true"
+      reranker_candidates: "30"
+      # Guardrails enabled in staging so safety issues surface before prod
+      enable_guardrails: "true"
+      rate_limit_per_minute: "60"
+      endpoint_workload_size: Small
+      endpoint_scale_to_zero: "true"
+    run_as:
+      user_name: ${workspace.current_user.userName}
