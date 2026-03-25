@@ -1,0 +1,123 @@
+# AgentOps Databricks Asset Bundle
+# ==================================
+# Root bundle configuration for the AgentOps framework.
+#
+# Targets:
+#   dev     - Development workspace (databricks bundle deploy --target dev)
+#   staging - Staging workspace     (databricks bundle deploy --target staging)
+#   prod    - Production workspace  (databricks bundle deploy --target prod)
+#
+# Usage:
+#   databricks bundle validate              # Validate config
+#   databricks bundle deploy --target dev   # Deploy to dev
+#   databricks bundle run data_preparation_workflow --target dev
+#
+# Prerequisites:
+#   - Databricks CLI >= 0.219.0
+#   - `databricks configure` completed for each target profile
+#   - Unity Catalog catalogs created (see docs/deployment.md)
+
+bundle:
+  name: agentops
+
+# Include workflow resource files and per-environment target configs
+include:
+  - bundle/resources/*.yml
+  - bundle/targets/*.yml
+
+variables:
+  # Catalog names (overridden per target)
+  dev_catalog:
+    default: agentops_dev
+    description: Unity Catalog catalog for development assets
+
+  prod_catalog:
+    default: agentops_prod
+    description: Unity Catalog catalog for production assets
+
+  dev_schema:
+    default: agentops
+    description: Schema within the dev catalog
+
+  prod_schema:
+    default: agentops
+    description: Schema within the prod catalog
+
+  # Vector Search
+  vector_search_endpoint:
+    default: agentops_vs_endpoint
+    description: Databricks Vector Search endpoint name
+
+  # Model Serving
+  model_serving_endpoint:
+    default: agentops_endpoint
+    description: Databricks Model Serving endpoint name
+
+  # LLM
+  llm_endpoint:
+    default: databricks-meta-llama-3-3-70b-instruct
+    description: Foundation Model API endpoint for agent LLM calls
+
+  embedding_endpoint:
+    default: databricks-bge-large-en
+    description: Foundation Model API endpoint for embeddings
+
+  # MLflow
+  mlflow_experiment_base:
+    default: /AgentOps
+    description: Base path for MLflow experiments (appended with /<env>)
+
+  # Cluster policy (overridden per target for cost management)
+  cluster_policy_id:
+    default: ""
+    description: Optional cluster policy ID to enforce for all job clusters
+
+  # Cluster node types — override for your cloud provider:
+  #   AWS:   m5d.xlarge / m5d.2xlarge / m5d.4xlarge  (defaults)
+  #   Azure: Standard_DS3_v2 / Standard_DS4_v2 / Standard_DS5_v2
+  #   GCP:   n1-standard-4 / n1-standard-8 / n1-standard-16
+  node_type_standard:
+    default: m5d.xlarge
+    description: "Node type for standard job clusters (agent dev, app deploy, monitoring). Override for Azure/GCP."
+
+  node_type_medium:
+    default: m5d.2xlarge
+    description: "Node type for medium job clusters (data preparation). Override for Azure/GCP."
+
+  node_type_large:
+    default: m5d.4xlarge
+    description: "Node type for large job clusters (batch inferencing). Override for Azure/GCP."
+
+  # Retrieval configuration (overridden per target)
+  query_type:
+    default: ann
+    description: "Vector Search query type for RAG agent: ann (semantic only) or hybrid (semantic + keyword BM25)"
+
+  enable_reranking:
+    default: "false"
+    description: "Enable DatabricksReranker for RAG agent (true/false). Improves precision at cost of one extra SDK call."
+
+  reranker_candidates:
+    default: "20"
+    description: Number of candidate chunks to fetch before reranking (only used when enable_reranking=true)
+
+  # AI Gateway (overridden per target — prod enables by default)
+  enable_guardrails:
+    default: "false"
+    description: "Attach AI Gateway input/output safety guardrails to the Model Serving endpoint (true/false)"
+
+  rate_limit_per_minute:
+    default: "0"
+    description: "AI Gateway rate limit in requests per minute (0 = disabled)"
+
+  # Endpoint sizing (overridden per target)
+  endpoint_workload_size:
+    default: Small
+    description: "Model Serving endpoint workload size: Small, Medium, or Large"
+
+  endpoint_scale_to_zero:
+    default: "true"
+    description: "Allow endpoint to scale to zero when idle (true/false). Set false for prod to avoid cold starts."
+
+# Targets are defined in bundle/targets/dev.yml, staging.yml, prod.yml
+# and included via the include directive above.

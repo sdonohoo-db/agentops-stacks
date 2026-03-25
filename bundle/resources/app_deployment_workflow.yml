@@ -1,0 +1,83 @@
+# App Deployment Workflow
+# ========================
+# Deploys agents and the full multi-agent app to the Model Serving endpoint.
+# Runs in both dev (for developer testing) and prod (triggered by CD pipeline).
+#
+# Task DAG:
+#
+#   agent1_deploy ──┐
+#   agent2_deploy ──┤──► app_deploy ──► Model Serving Endpoint
+#
+# Dev: Deploys to the dev endpoint for SME review and testing.
+# Prod: Deploys to the production endpoint serving real users.
+
+resources:
+  jobs:
+    app_deployment_workflow:
+      name: "[AgentOps] App Deployment"
+      description: >
+        Packages and deploys Agent 1, Agent 2, and the full multi-agent application
+        to the Model Serving endpoint. In dev, this enables SME review and manual
+        testing. In prod, this serves live traffic.
+
+      tags:
+        agentops_component: app_deployment
+        agentops_env: ${bundle.target}
+
+      job_clusters:
+        - job_cluster_key: deploy_cluster
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: ${var.node_type_standard}
+            num_workers: 0
+            spark_conf:
+              spark.databricks.delta.preview.enabled: "true"
+            custom_tags:
+              agentops_workflow: app_deployment
+
+      tasks:
+        - task_key: agent1_deploy
+          description: Package and register Agent 1 in Unity Catalog
+          job_cluster_key: deploy_cluster
+          python_wheel_task:
+            package_name: agentops_framework
+            entry_point: run_agent1_deploy
+          libraries:
+            - whl: ./dist/agentops_framework-*.whl
+          timeout_seconds: 1800
+
+        - task_key: agent2_deploy
+          description: Package and register Agent 2 in Unity Catalog
+          job_cluster_key: deploy_cluster
+          python_wheel_task:
+            package_name: agentops_framework
+            entry_point: run_agent2_deploy
+          libraries:
+            - whl: ./dist/agentops_framework-*.whl
+          timeout_seconds: 1800
+
+        - task_key: app_deploy
+          description: Deploy the full multi-agent app to Model Serving endpoint
+          depends_on:
+            - task_key: agent1_deploy
+            - task_key: agent2_deploy
+          job_cluster_key: deploy_cluster
+          python_wheel_task:
+            package_name: agentops_framework
+            entry_point: run_app_deploy
+            parameters:
+              - "--enable-guardrails"
+              - "${var.enable_guardrails}"
+              - "--rate-limit"
+              - "${var.rate_limit_per_minute}"
+              - "--workload-size"
+              - "${var.endpoint_workload_size}"
+              - "--scale-to-zero"
+              - "${var.endpoint_scale_to_zero}"
+          libraries:
+            - whl: ./dist/agentops_framework-*.whl
+          timeout_seconds: 1800
+
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}

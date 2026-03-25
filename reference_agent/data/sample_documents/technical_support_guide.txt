@@ -1,0 +1,33 @@
+Technical Support Guide
+
+Getting Started
+
+To access the platform, navigate to the login page and enter your company email and password. If you do not have credentials, contact your system administrator or submit a request through the IT help desk portal. First-time logins require setting up multi-factor authentication (MFA) using an authenticator app such as Okta Verify or Google Authenticator.
+
+Password Reset
+
+If you have forgotten your password, click "Forgot Password" on the login page and enter your registered email address. You will receive a reset link valid for 30 minutes. If you do not receive the email within 5 minutes, check your spam folder. If the issue persists, contact IT support at support@company.com or call the help desk at 1-800-555-0100 during business hours (Monday-Friday, 8am-6pm EST).
+
+System Requirements
+
+The platform supports the following browsers: Chrome 110+, Firefox 115+, Edge 110+, Safari 16+. Internet Explorer is not supported. For optimal performance, use a device with at least 8GB RAM and a stable broadband connection (minimum 10 Mbps download speed). Mobile access is supported via our iOS (version 15+) and Android (version 11+) apps.
+
+Data Export
+
+To export your data, navigate to Settings > Data Management > Export. You can export in CSV, JSON, or PDF format. Large exports (over 100MB) are processed asynchronously and sent to your email when ready. Exports are available for download for 7 days before they expire. For bulk exports exceeding your account limits, contact your account manager.
+
+API Access
+
+API keys can be generated from Settings > Developer > API Keys. Each key is tied to your user account and inherits your permissions. Keep API keys confidential and rotate them every 90 days. The API rate limit is 1,000 requests per minute per key. Exceeding this limit returns a 429 status code. Full API documentation is available at docs.company.com/api.
+
+Common Error Codes
+
+Error 401 Unauthorized: Your session has expired or credentials are invalid. Log out and log back in.
+Error 403 Forbidden: You do not have permission to access this resource. Contact your administrator.
+Error 404 Not Found: The resource does not exist or has been deleted.
+Error 429 Too Many Requests: You have exceeded the API rate limit. Wait 60 seconds before retrying.
+Error 500 Internal Server Error: A server-side issue occurred. If the problem persists, contact support with the request ID from the response header.
+
+Escalation Process
+
+For critical issues affecting production systems, use the Priority 1 escalation path: call the 24/7 emergency line at 1-800-555-0911 and open a ticket with severity "Critical." A support engineer will respond within 30 minutes. For non-critical issues, submit a ticket through the help desk portal. Response times: Priority 2 (High) - 4 hours, Priority 3 (Medium) - 24 hours, Priority 4 (Low) - 72 hours.
