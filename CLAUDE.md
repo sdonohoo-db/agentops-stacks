@@ -51,6 +51,12 @@ python reference_agent/eval/run_eval.py --sample 5  # quick dev check
 python reference_agent/eval/run_eval.py             # full eval
 ```
 
+### First-time workspace setup (run once per workspace)
+```bash
+cp .env.example .env                     # fill in DATABRICKS_HOST, DATABRICKS_TOKEN, AGENTOPS_ENV
+python scripts/setup.py                  # creates catalogs, schemas, VS endpoint, MLflow experiments
+```
+
 ### Deploy
 ```bash
 pip install build && python -m build     # build wheel first (required by DAB workflows)

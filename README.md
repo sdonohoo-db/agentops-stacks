@@ -84,13 +84,25 @@ See [Architecture Reference](docs/architecture.md) for the full breakdown.
 - Databricks CLI >= 0.219.0
 - Python 3.11+
 
-### 1. Configure workspace credentials
+### 1. Configure credentials
 
 ```bash
-databricks configure
+# Copy the environment variable template and fill in your values
+cp .env.example .env
+# then export the variables, or add them to your shell profile
+
+databricks configure   # authenticates the Databricks CLI
 ```
 
-### 2. Build the wheel and deploy to dev
+### 2. Bootstrap workspace resources (one-time)
+
+```bash
+python scripts/setup.py
+```
+
+This creates the Unity Catalog catalogs and schemas, Vector Search endpoint, and MLflow experiments. Safe to re-run. See `--help` for options (skip install, skip tests, wait for Vector Search).
+
+### 3. Build the wheel and deploy to dev
 
 ```bash
 pip install build
@@ -189,6 +201,7 @@ agentops-redux/
 │       └── conftest.py
 │
 ├── scripts/
+│   ├── setup.py                       # CLI: one-time workspace bootstrap (run before deploy)
 │   ├── deploy.py                      # CLI: databricks bundle deploy wrapper
 │   ├── scaffold.py                    # CLI: generate new agent from templates
 │   ├── verify.py                      # CLI: live health checks → verification_report.md
