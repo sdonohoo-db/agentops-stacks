@@ -58,7 +58,7 @@ run_online_evaluation       = "framework.entrypoints:run_online_evaluation"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["framework*", "reference_agent*", "scripts*"]
+include = ["framework*", "reference_agent*", "agentops_mcp*", "scripts*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
