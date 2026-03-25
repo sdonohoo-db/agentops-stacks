@@ -1,5 +1,55 @@
-*conf*.json
-.DS_Store
-__pycache__
-.idea/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
 .env
+ENV/
+
+# Secrets and credentials
+.env.local
+*.token
+*.pem
+*.key
+
+# MLflow local fallback (should always use Databricks tracking URI)
+mlflow.db
+mlruns/
+
+# Databricks / AgentOps generated files
+deployment_manifest.md
+verification_report.md
+
+# Test / coverage output
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.xml
+
+# Build artifacts
+*.whl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

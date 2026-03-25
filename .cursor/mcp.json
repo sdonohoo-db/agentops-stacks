@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "agentops": {
+      "command": "python",
+      "args": ["${workspaceFolder}/agentops_mcp/server.py"],
+      "env": {
+        "DATABRICKS_HOST": "${env:DATABRICKS_HOST}",
+        "DATABRICKS_TOKEN": "${env:DATABRICKS_TOKEN}",
+        "AGENTOPS_PROJECT_ROOT": "${workspaceFolder}",
+        "AGENTOPS_ENV": "${env:AGENTOPS_ENV}"
+      }
+    }
+  }
+}

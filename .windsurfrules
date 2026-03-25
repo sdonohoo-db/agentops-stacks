@@ -1,0 +1,106 @@
+# AgentOps Redux — Windsurf Rules
+
+AgentOps Redux is a production-ready framework for developing, evaluating, and promoting AI agents on Databricks. It follows the architecture in `agentops_architecture_decomposition.md`.
+
+**Do not confuse this with a demo or tutorial.** This is a deployable framework. Changes here affect real Databricks workspaces.
+
+## MCP Tools
+
+This project ships an MCP server at `agentops_mcp/server.py` with 7 tools:
+`deploy_agentops_framework`, `scaffold_agent_project`, `run_evaluation_suite`,
+`read_deployment_manifest`, `monitor_deployment`, `submit_trace_feedback`, `export_negative_traces`
+
+Configure via Windsurf MCP settings pointing to `agentops_mcp/server.py`.
+
+## Critical Files
+
+```
+framework/config.py           ← Single source of config (AgentOpsConfig). Read this first.
+framework/agent_development/  ← AgentBase, Router, ToolRegistry — start here for agent work
+framework/evaluation/         ← MLflow GenAI evaluation wrappers
+databricks.yml                ← DAB root config — environment variables defined here
+reference_agent/app.py        ← Top-level mlflow.pyfunc model (what gets deployed)
+reference_agent/router/       ← Multi-agent router (routes to agent1 or agent2)
+scripts/deploy.py             ← Deploy to Databricks workspace
+scripts/verify.py             ← Verify deployment + write verification_report.md
+deployment_manifest.md        ← GENERATED — shows what's deployed (read before ops tasks)
+```
+
+## Environment Variables
+
+```bash
+export AGENTOPS_ENV=dev                # dev | staging | prod
+export DATABRICKS_HOST=https://your.workspace.com
+export DATABRICKS_TOKEN=dapi...
+export AGENTOPS_DEV_CATALOG=agentops_dev
+export AGENTOPS_PROD_CATALOG=agentops_prod
+```
+
+## Common Tasks
+
+```bash
+# Add a new agent
+python scripts/scaffold.py --name <name> --description "<desc>" --type rag
+
+# Run evaluation
+python reference_agent/eval/run_eval.py --sample 5
+
+# Deploy (build wheel first — required by DAB)
+pip install build && python -m build
+python scripts/deploy.py --target dev
+
+# Verify
+python scripts/verify.py --target dev --test-inference
+
+# Unit tests (no Databricks needed)
+pytest tests/unit/ -v
+```
+
+## Key Interfaces
+
+```python
+# All agents inherit AgentBase
+from framework.agent_development.agent_base import AgentBase
+class MyAgent(AgentBase):
+    def __init__(self):
+        super().__init__(name="my_agent", description="Does X")
+    def _invoke(self, messages, context=None) -> str:
+        return "response"
+
+# Config singleton
+from framework.config import get_config
+cfg = get_config()
+cfg.active_catalog_schema  # agentops_dev.agentops
+
+# Evaluation
+from framework.evaluation.evaluator import AgentEvaluator
+result = AgentEvaluator("my_agent").run(agent, "eval/eval_dataset.jsonl")
+assert result.passed()
+```
+
+## Deployment Architecture (Do Not Bypass)
+
+Flow: **dev branch → staging CI → main → release → prod CD**
+
+- Never write to Prod Catalog from dev code
+- Never skip evaluation gates before promoting
+- The `@champion` UC model alias is what prod serving targets
+
+## Testing Standards
+
+- `tests/unit/` — pure Python, no credentials needed
+- `tests/integration/` — requires `DATABRICKS_HOST`
+- `tests/validation/` — full eval gate, staging CI only
+
+## Multi-Cloud Node Types
+
+Clusters default to AWS. Override for Azure (`Standard_DS3_v2`) or GCP (`n1-standard-4`)
+via `--var="node_type_standard=..."` at deploy time. See `docs/deployment.md`.
+
+## Do Not
+
+- Hardcode workspace URLs or tokens — use env vars
+- Write to Prod Catalog from dev/staging code
+- Lower evaluation thresholds to pass failing tests
+- Edit `deployment_manifest.md` by hand — it is auto-generated
+- Deploy to prod without deploying to staging first

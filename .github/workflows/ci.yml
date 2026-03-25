@@ -1,0 +1,188 @@
+name: AgentOps CI — Test Gate
+
+# Triggers on push to dev branch and pull requests targeting main.
+# Runs all three test tiers and logs results to MLflow (staging).
+# Blocks merge if any tier fails.
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+
+env:
+  AGENTOPS_ENV: staging
+  DATABRICKS_HOST: ${{ secrets.DATABRICKS_STAGING_HOST }}
+  DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_STAGING_TOKEN }}
+  AGENTOPS_DEV_CATALOG: ${{ vars.AGENTOPS_DEV_CATALOG || 'agentops_dev' }}
+  AGENTOPS_PROD_CATALOG: ${{ vars.AGENTOPS_PROD_CATALOG || 'agentops_prod' }}
+  # HAS_STAGING_CREDS: evaluated from env var so job-level if conditions work
+  # (secrets cannot be compared directly in job-level if expressions)
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Bundle Validation (fast — no Databricks connection needed)
+  # ─────────────────────────────────────────────────────────────────────────
+  validate-bundle:
+    name: Validate DAB Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install build dependencies and build wheel
+        run: |
+          pip install build
+          pip install -e "."
+          python -m build
+
+      - name: Install Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Validate bundle (dev target)
+        run: databricks bundle validate --target dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_DEV_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_DEV_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Unit Tests (no Databricks connection required)
+  # ─────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+          pip install pytest pytest-cov
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v \
+            --tb=short \
+            --cov=framework \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=test-results-unit.xml
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results
+          path: |
+            test-results-unit.xml
+            coverage.xml
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Integration Tests (requires Databricks staging workspace)
+  # ─────────────────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [validate-bundle, unit-tests]
+    if: ${{ env.DATABRICKS_HOST != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v \
+            --tb=short \
+            --junitxml=test-results-integration.xml
+        env:
+          AGENTOPS_ENV: staging
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_STAGING_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_STAGING_TOKEN }}
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results
+          path: test-results-integration.xml
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: Validation Tests (agent quality gate)
+  # ─────────────────────────────────────────────────────────────────────────
+  validation-tests:
+    name: Validation Tests (Agent Quality Gate)
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    if: ${{ env.DATABRICKS_HOST != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run validation tests
+        run: |
+          pytest tests/validation/ -v \
+            --tb=short \
+            --junitxml=test-results-validation.xml
+        env:
+          AGENTOPS_ENV: staging
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_STAGING_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_STAGING_TOKEN }}
+          EVAL_SAMPLE_SIZE: "10"  # Use sample for CI speed
+
+      - name: Upload validation test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-test-results
+          path: test-results-validation.xml
+
+      - name: Comment MLflow experiment link on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const host = process.env.DATABRICKS_STAGING_HOST;
+            const body = `## AgentOps CI Results
+
+            | Test Tier | Status |
+            |---|---|
+            | Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |
+            | Integration Tests | ${{ needs.integration-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |
+            | Validation Tests | ${{ needs.validation-tests.result == 'success' && '✅ PASSED' || '❌ FAILED' }} |
+
+            [View MLflow Experiments](${host}/#mlflow/experiments)`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
