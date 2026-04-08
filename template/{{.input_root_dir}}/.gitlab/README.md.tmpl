@@ -1,7 +1,26 @@
-# CI/CD Workflow Definitions
-This directory contains CI/CD workflow definitions using [Gitlab Pipelines](https://docs.gitlab.com/ee/ci/pipelines/),
-under the folder ``pipelines``. These workflows cover testing and deployment of both ML code (for model training, batch inference, etc) and 
-Databricks ML resource definitions. 
+# CI/CD — GitLab Pipelines
 
-To set up CI/CD for a new project,
-please refer to [Setting up CI/CD](<../../README.md#Setting up CI/CD>) and following the [MLOps Setup Guide](../../docs/mlops-setup.md).
+This directory contains GitLab pipeline definitions for validating and deploying your agent project as a Databricks Asset Bundle.
+
+## Pipelines
+
+Pipeline files are under `pipelines/`. The main trigger file is `{{ .input_project_name }}-triggers-cicd.yml`.
+
+| Stage | Trigger | What it does |
+|-------|---------|-------------|
+| CI | PR to `main` | Validates bundle config, runs unit and integration tests |
+| CD (staging) | Merge to `main` | Deploys bundle to staging workspace |
+| CD (prod) | Merge to `release` | Deploys bundle to prod workspace |
+
+## Setup
+
+1. Create service principals for staging and prod workspaces
+2. Set up GitLab environments (`integration`, `stage`, `production`)
+3. Add `SP_CLIENT_ID` and `SP_CLIENT_SECRET` as CI/CD variables scoped to each environment
+4. Set the CI/CD configuration file path to `.gitlab/pipelines/{{ .input_project_name }}-triggers-cicd.yml`
+
+## Docker image
+
+Pipelines run on `databricksfieldeng/mlopsstacks:latest` by default. Build a custom image from `docker/` if needed, and update the `image:` line in each pipeline YAML.
+
+For details, see the [AgentOps Setup Guide](../../docs/agentops-setup.md).

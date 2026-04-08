@@ -1,10 +1,9 @@
-image: {{ .input_docker_image }}
- 
+image: databricksfieldeng/mlopsstacks:latest
+
 deploy-production:
   stage: deploy
-  environment: production 
+  environment: production
   variables:
-    DATABRICKS_HOST: {{template `databricks_prod_workspace_host` .}}
     DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
     DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
   script:
@@ -12,4 +11,4 @@ deploy-production:
     - databricks bundle validate -t prod
     - databricks bundle deploy -t prod
   rules:
-    - when: on_success # mandatory to ensure this job can be called by parent on merge request
+    - when: on_success

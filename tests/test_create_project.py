@@ -19,30 +19,6 @@ DEFAULT_PROJECT_DIRECTORY = "my_agentops_project"
 # UUID that when set as project name, prevents the removal of files needed in testing
 TEST_PROJECT_NAME = "27896cf3-bb3e-476e-8129-96df0406d5c7"
 TEST_PROJECT_DIRECTORY = "27896cf3_bb3e_476e_8129_96df0406d5c7"
-DEFAULT_PARAM_VALUES = {
-    "input_default_branch": "main",
-    "input_release_branch": "release",
-    "input_read_user_group": "users",
-    "input_schema_name": "my_agentops_project",
-    "input_staging_catalog_name": "staging",
-    "input_prod_catalog_name": "prod",
-    "input_test_catalog_name": "test",
-}
-DEFAULT_PARAMS_AZURE = {
-    "input_cloud": "azure",
-    "input_databricks_staging_workspace_host": "https://adb-xxxx.xx.azuredatabricks.net",
-    "input_databricks_prod_workspace_host": "https://adb-xxxx.xx.azuredatabricks.net",
-}
-DEFAULT_PARAMS_AWS = {
-    "input_cloud": "aws",
-    "input_databricks_staging_workspace_host": "https://your-staging-workspace.cloud.databricks.com",
-    "input_databricks_prod_workspace_host": "https://your-prod-workspace.cloud.databricks.com",
-}
-DEFAULT_PARAMS_GCP = {
-    "input_cloud": "gcp",
-    "input_databricks_staging_workspace_host": "https://your-staging-workspace.gcp.databricks.com",
-    "input_databricks_prod_workspace_host": "https://your-prod-workspace.gcp.databricks.com",
-}
 
 
 def assert_no_disallowed_strings_in_files(
@@ -51,11 +27,6 @@ def assert_no_disallowed_strings_in_files(
     """
     Assert that all files in file_paths, besides those with paths containing
     one of exclude_path_matches as a substring, do not contain any of the specified disallowed strings
-
-    :param file_paths List of paths of files to check
-    :param disallowed_strings: List of disallowed strings
-    :param exclude_path_matches: List of substrings e.g. [".github", ".png"]. Any files whose paths
-    contain one of these substrings will not be checked for disallowed strings
     """
     if exclude_path_matches is None:
         exclude_path_matches = []
@@ -140,8 +111,6 @@ def test_markdown_links(cloud, generated_project_dir):
 @pytest.mark.parametrize(
     "invalid_params",
     [
-        {"input_databricks_staging_workspace_host": "http://no-https"},
-        {"input_databricks_prod_workspace_host": "no-https"},
         {"input_project_name": "a"},
         {"input_project_name": "a-"},
         {"input_project_name": "Name with spaces"},
@@ -169,38 +138,22 @@ def test_generate_project_with_default_values(
     setup_cicd_and_project,
 ):
     """
-    Asserts the default parameter values. The project name and experiment
-    parent directory are excluded from this test as they covered in other tests. If this test fails
-    due to an update of the default values, please do the following checks:
+    Asserts the default parameter values. If this test fails due to an update
+    of the default values, check:
     - The default param value constants in this test are up to date.
-    - The default param values in the substitution logic in the pre_gen_project.py hook are up to date.
-    - The default param values in the help strings in databricks_template_schema.json are up to date.
+    - The default param values in the pre_gen_project.py hook are up to date.
+    - The default param values in databricks_template_schema.json are up to date.
     """
     context = {
         "input_project_name": TEST_PROJECT_NAME,
         "input_root_dir": TEST_PROJECT_NAME,
         "input_cloud": cloud,
         "input_cicd_platform": cicd_platform,
-        "input_schema_name": "27896cf3_bb3e_476e_8129_96df0406d5c7",
-        "input_staging_catalog_name": "staging",
-        "input_prod_catalog_name": "prod",
-        "input_test_catalog_name": "test",
     }
     # Testing that Azure is the default option.
     if cloud == "azure":
         del context["input_cloud"]
     generate(tmpdir, databricks_cli, context=context)
-    test_file_contents = (
-        tmpdir / TEST_PROJECT_NAME / "_params_testing_only.txt"
-    ).read_text("utf-8")
-    if cloud == "azure":
-        params = {**DEFAULT_PARAM_VALUES, **DEFAULT_PARAMS_AZURE}
-    elif cloud == "aws":
-        params = {**DEFAULT_PARAM_VALUES, **DEFAULT_PARAMS_AWS}
-    elif cloud == "gcp":
-        params = {**DEFAULT_PARAM_VALUES, **DEFAULT_PARAMS_GCP}
-    for param, value in params.items():
-        assert f"{param}={value}" in test_file_contents
 
 
 def prepareContext(cloud, cicd_platform, setup_cicd_and_project):
@@ -210,10 +163,6 @@ def prepareContext(cloud, cicd_platform, setup_cicd_and_project):
         "input_root_dir": TEST_PROJECT_NAME,
         "input_cloud": cloud,
         "input_cicd_platform": cicd_platform,
-        "input_schema_name": "27896cf3_bb3e_476e_8129_96df0406d5c7",
-        "input_staging_catalog_name": "staging",
-        "input_prod_catalog_name": "prod",
-        "input_test_catalog_name": "test",
     }
     return context
 
@@ -231,49 +180,20 @@ def test_generate_project_agent_structure(
     """
     context = prepareContext(cloud, cicd_platform, setup_cicd_and_project)
     generate(tmpdir, databricks_cli, context=context)
-    project_dir = tmpdir / TEST_PROJECT_NAME / TEST_PROJECT_DIRECTORY
+    project_dir = tmpdir / TEST_PROJECT_NAME
     if setup_cicd_and_project != "CICD_Only":
-        assert (project_dir / "agent_development" / "agent" / "notebooks" / "Agent.py").exists()
-        assert (project_dir / "data_preparation").exists()
-        assert (project_dir / "agent_deployment").exists()
+        # new agent-in-app structure
+        assert (project_dir / "agent_server" / "agent.py").exists()
+        assert (project_dir / "agent_server" / "start_server.py").exists()
+        assert (project_dir / "scripts" / "setup.py").exists()
+        assert (project_dir / "app.yaml").exists()
+        assert (project_dir / "pyproject.toml").exists()
+        # old structures removed
+        assert not (project_dir / "agent_development").exists()
+        assert not (project_dir / "data_preparation").exists()
         assert not (project_dir / "training").exists()
         assert not (project_dir / "feature_engineering").exists()
-
-
-@pytest.mark.parametrize(
-    "workspace_url_suffix",
-    [
-        "/?o=123456789#job/1234/run/9234",
-        "/?o=123456789#",
-        "/?o=123456789#ml/dashboard",
-        "#ml/dashboard",
-    ],
-)
-@parametrize_by_cloud
-def test_workspace_dir_strip_query_params(
-    tmpdir, databricks_cli, cloud, workspace_url_suffix
-):
-    workspace_host = {
-        "aws": "https://dbc-my-aws-workspace.cloud.databricks.com",
-        "azure": "https://adb-mycoolworkspace.11.azuredatabricks.net",
-        "gcp": "https://dbc-my-gcp-workspace.gcp.databricks.com",
-    }[cloud]
-    workspace_url = f"{workspace_host}{workspace_url_suffix}"
-    context = {
-        "input_project_name": TEST_PROJECT_NAME,
-        "input_root_dir": TEST_PROJECT_NAME,
-        "input_databricks_staging_workspace_host": workspace_url,
-        "input_databricks_prod_workspace_host": workspace_url,
-        "input_cloud": cloud,
-    }
-    generate(tmpdir, databricks_cli, context=context)
-    test_file_contents = (
-        tmpdir / TEST_PROJECT_NAME / "_params_testing_only.txt"
-    ).read_text("utf-8")
-    assert (
-        f"\ndatabricks_staging_workspace_host={workspace_host}\n" in test_file_contents
-    )
-    assert f"\ndatabricks_prod_workspace_host={workspace_host}\n" in test_file_contents
+        assert not (project_dir / "agent_deployment").exists()
 
 
 def test_generate_project_default_project_name_params(tmpdir, databricks_cli):

@@ -1,0 +1,34 @@
+# Agent Development
+
+Notebooks for creating, logging, and evaluating your agent.
+
+## Directory structure
+
+| Path | Purpose |
+|------|---------|
+| `agent/notebooks/Agent.py` | Creates the agent, logs it to MLflow, registers in Unity Catalog |
+| `agent_evaluation/AgentEvaluation.py` | Evaluates the agent against a benchmark dataset using LLM-as-a-judge scorers |
+
+## How the job works
+
+The agent development job (defined in `resources/agent-resource.yml`) runs two tasks in sequence:
+
+1. **AgentDevelopment** — runs `Agent.py` to create and log the agent as an MLflow model
+2. **AgentEvaluation** — runs `AgentEvaluation.py` to evaluate the logged model. If metrics fall below configured thresholds, the task fails.
+
+## Running locally
+
+```bash
+databricks bundle run agent_development_job -t dev
+```
+
+Or run individual notebooks interactively in the Databricks workspace.
+
+## Evaluation thresholds
+
+The evaluation task uses threshold presets controlled by the `eval_threshold_mode` bundle variable:
+
+| Mode | Correctness | Groundedness | Relevance | Safety |
+|------|-------------|-------------|-----------|--------|
+| relaxed (dev, test) | 0.7 | 0.8 | 0.7 | 1.0 |
+| strict (staging, prod) | 0.9 | 0.95 | 0.85 | 1.0 |

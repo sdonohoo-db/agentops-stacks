@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""
+AgentOps Setup — select and install an agent framework from databricks/app-templates.
+
+Queries GitHub for available agent and MCP server templates, presents a menu,
+and pulls the selected template into this project via git sparse-checkout.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from pathlib import Path
+
+REPO = "databricks/app-templates"
+REPO_URL = f"https://github.com/{REPO}.git"
+GITHUB_API = f"https://api.github.com/repos/{REPO}/contents/"
+PROJECT_ROOT = Path(__file__).parent.parent
+PREFIXES = ("agent-", "mcp-server-")
+
+
+def fetch_template_list() -> list[dict]:
+    """Get available templates with descriptions from GitHub API.
+    Returns list of {"name": str, "description": str} dicts."""
+    names = []
+    try:
+        req = urllib.request.Request(GITHUB_API, headers={"User-Agent": "agentops-setup"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            entries = json.loads(resp.read())
+        names = sorted(
+            e["name"] for e in entries
+            if e["type"] == "dir" and e["name"].startswith(PREFIXES)
+        )
+    except Exception:
+        print("GitHub API unavailable, trying git...")
+        try:
+            result = subprocess.run(
+                ["git", "clone", "--filter=blob:none", "--bare", "--depth=1", REPO_URL, "/tmp/app-templates-index"],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                result = subprocess.run(
+                    ["git", "-C", "/tmp/app-templates-index", "ls-tree", "--name-only", "HEAD"],
+                    capture_output=True, text=True,
+                )
+                names = sorted(n for n in result.stdout.strip().split("\n") if n.startswith(PREFIXES))
+                shutil.rmtree("/tmp/app-templates-index", ignore_errors=True)
+        except Exception:
+            pass
+
+    if not names:
+        return []
+
+    # Fetch one-line descriptions from each template's README
+    descriptions = _fetch_descriptions(names)
+    return [{"name": n, "description": descriptions.get(n, "")} for n in names]
+
+
+def _fetch_descriptions(names: list[str]) -> dict[str, str]:
+    """Fetch the first meaningful line from each template's README via GitHub API."""
+    descriptions = {}
+    import base64
+    for name in names:
+        try:
+            url = f"https://api.github.com/repos/{REPO}/contents/{name}/README.md"
+            req = urllib.request.Request(url, headers={"User-Agent": "agentops-setup"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            content = base64.b64decode(data["content"]).decode("utf-8")
+            desc = _extract_description(content)
+            if desc:
+                descriptions[name] = desc
+        except Exception:
+            continue
+    return descriptions
+
+
+def _extract_description(readme: str) -> str:
+    """Pull the first non-heading, non-empty line from a README as the description."""
+    for line in readme.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("[") or line.startswith("!"):
+            continue
+        # Trim to a reasonable length
+        if len(line) > 70:
+            line = line[:67] + "..."
+        return line
+    return ""
+
+
+def sparse_checkout(template_name: str, dest: Path) -> bool:
+    """Sparse-checkout a single template directory from the repo."""
+    tmpdir = tempfile.mkdtemp(prefix="agentops-setup-")
+    try:
+        # Try HTTPS first, then SSH
+        for url in [REPO_URL, f"git@github.com:{REPO}.git"]:
+            result = subprocess.run(
+                ["git", "clone", "--filter=blob:none", "--sparse", "--depth=1", url, tmpdir],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode == 0:
+                break
+        else:
+            print(f"Failed to clone repository. Download manually from:")
+            print(f"  https://github.com/{REPO}/tree/main/{template_name}")
+            return False
+
+        subprocess.run(
+            ["git", "-C", tmpdir, "sparse-checkout", "set", template_name],
+            check=True, capture_output=True, text=True,
+        )
+
+        src = Path(tmpdir) / template_name
+        if not src.exists():
+            print(f"Template '{template_name}' not found in repository.")
+            return False
+
+        # Copy agent_server/ if it exists (agent templates)
+        agent_src = src / "agent_server"
+        if agent_src.exists():
+            agent_dest = dest / "agent_server"
+            # Remove the stub agent.py, keep start_server.py
+            for item in agent_src.iterdir():
+                target = agent_dest / item.name
+                if item.is_file():
+                    shutil.copy2(item, target)
+
+        # Copy scripts/ if they exist
+        scripts_src = src / "scripts"
+        if scripts_src.exists():
+            scripts_dest = dest / "scripts"
+            scripts_dest.mkdir(exist_ok=True)
+            for item in scripts_src.iterdir():
+                if item.name == "setup.py":
+                    continue  # don't overwrite our setup script
+                shutil.copy2(item, scripts_dest / item.name)
+
+        # Copy app.yaml if present (may have template-specific env vars)
+        app_yaml = src / "app.yaml"
+        if app_yaml.exists():
+            shutil.copy2(app_yaml, dest / "app.yaml")
+
+        # Merge framework-specific deps into our pyproject.toml
+        pyproject = src / "pyproject.toml"
+        if pyproject.exists():
+            merge_pyproject(pyproject, dest / "pyproject.toml")
+
+        # Copy .env.example if present
+        env_example = src / ".env.example"
+        if env_example.exists():
+            shutil.copy2(env_example, dest / ".env.example")
+
+        return True
+
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def merge_pyproject(src_path: Path, dest_path: Path):
+    """Merge template pyproject.toml dependencies into ours, preserving our
+    project metadata, entry points, and build config."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # Python < 3.11
+
+    with open(src_path, "rb") as f:
+        src = tomllib.load(f)
+    with open(dest_path, "rb") as f:
+        dest = tomllib.load(f)
+
+    # Merge dependencies — union of both, template version specs win on conflict
+    our_deps = {d.split(">")[0].split("=")[0].split("[")[0].split("<")[0].strip(): d
+                for d in dest.get("project", {}).get("dependencies", [])}
+    for dep in src.get("project", {}).get("dependencies", []):
+        pkg = dep.split(">")[0].split("=")[0].split("[")[0].split("<")[0].strip()
+        our_deps[pkg] = dep  # template version wins
+    dest.setdefault("project", {})["dependencies"] = sorted(our_deps.values())
+
+    # Merge entry points from template (add new ones, don't remove ours)
+    src_scripts = src.get("project", {}).get("scripts", {})
+    dest.setdefault("project", {}).setdefault("scripts", {})
+    for name, target in src_scripts.items():
+        if name not in dest["project"]["scripts"]:
+            dest["project"]["scripts"][name] = target
+
+    # Merge dependency-groups (dev, setup, etc.)
+    for group, deps in src.get("dependency-groups", {}).items():
+        existing = dest.setdefault("dependency-groups", {}).get(group, [])
+        existing_pkgs = {d.split(">")[0].split("=")[0].strip() for d in existing}
+        for dep in deps:
+            pkg = dep.split(">")[0].split("=")[0].strip()
+            if pkg not in existing_pkgs:
+                existing.append(dep)
+        dest.setdefault("dependency-groups", {})[group] = existing
+
+    # Merge tool.uv settings
+    if "tool" in src and "uv" in src["tool"]:
+        dest.setdefault("tool", {}).setdefault("uv", {}).update(src["tool"]["uv"])
+
+    # Write back as TOML
+    _write_toml(dest, dest_path)
+
+
+def _write_toml(data: dict, path: Path):
+    """Simple TOML writer — handles the subset we need (no datetime, etc.)."""
+    lines = []
+
+    def write_value(v):
+        if isinstance(v, str):
+            return f'"{v}"'
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (int, float)):
+            return str(v)
+        if isinstance(v, list):
+            items = ", ".join(write_value(i) for i in v)
+            if len(items) > 80:
+                inner = ",\n".join(f"    {write_value(i)}" for i in v)
+                return f"[\n{inner},\n]"
+            return f"[{items}]"
+        if isinstance(v, dict):
+            items = ", ".join(f"{k} = {write_value(val)}" for k, val in v.items())
+            return "{" + f" {items} " + "}"
+        return str(v)
+
+    def write_section(d, prefix=""):
+        for key, val in d.items():
+            if isinstance(val, dict) and not all(isinstance(v, str) for v in val.values()):
+                # Nested table
+                section = f"{prefix}.{key}" if prefix else key
+                # Check if it has non-dict leaf values at this level
+                leaves = {k: v for k, v in val.items() if not isinstance(v, dict)}
+                tables = {k: v for k, v in val.items() if isinstance(v, dict)}
+                if leaves or not tables:
+                    lines.append(f"\n[{section}]")
+                    for lk, lv in leaves.items():
+                        lines.append(f"{lk} = {write_value(lv)}")
+                for tk, tv in tables.items():
+                    write_section({tk: tv}, prefix=section)
+            elif isinstance(val, dict):
+                section = f"{prefix}.{key}" if prefix else key
+                lines.append(f"\n[{section}]")
+                for k2, v2 in val.items():
+                    lines.append(f"{k2} = {write_value(v2)}")
+            else:
+                lines.append(f"{key} = {write_value(val)}")
+
+    write_section(data)
+    path.write_text("\n".join(lines).strip() + "\n")
+
+
+def main():
+    print("AgentOps Setup")
+    print("=" * 50)
+    print(f"Fetching available templates from {REPO}...\n")
+
+    templates = fetch_template_list()
+    if not templates:
+        print("Could not fetch template list. Check your network connection.")
+        print(f"You can browse templates at: https://github.com/{REPO}")
+        sys.exit(1)
+
+    # Group by type
+    agents = [t for t in templates if t["name"].startswith("agent-")]
+    mcp_servers = [t for t in templates if t["name"].startswith("mcp-server-")]
+
+    # Find longest name for alignment
+    max_name = max(len(t["name"]) for t in templates)
+
+    print("Agent frameworks:")
+    idx = 1
+    for t in agents:
+        desc = f"  — {t['description']}" if t["description"] else ""
+        print(f"  {idx:2d}) {t['name']:<{max_name}}{desc}")
+        idx += 1
+
+    if mcp_servers:
+        print("\nMCP servers:")
+        for t in mcp_servers:
+            desc = f"  — {t['description']}" if t["description"] else ""
+            print(f"  {idx:2d}) {t['name']:<{max_name}}{desc}")
+            idx += 1
+
+    print(f"\n   0) Skip — configure agent code manually")
+
+    while True:
+        try:
+            choice = input(f"\nSelect a template [1-{idx-1}, 0 to skip]: ").strip()
+            if choice == "0":
+                print("\nSkipped. Edit agent_server/agent.py manually.")
+                return
+            num = int(choice)
+            if 1 <= num <= len(templates):
+                break
+        except (ValueError, EOFError):
+            pass
+        print("Invalid selection, try again.")
+
+    selected = templates[num - 1]["name"]
+    print(f"\nInstalling '{selected}'...")
+
+    if sparse_checkout(selected, PROJECT_ROOT):
+        print(f"\nInstalled '{selected}' into project.")
+        print("\nNext steps:")
+        print("  1. Review agent_server/agent.py and configure your agent")
+        print("  2. Run 'uv sync' to install dependencies")
+        print("  3. Run 'uv run start-server' to test locally")
+        print("  4. Run 'databricks bundle deploy -t dev' to deploy")
+    else:
+        print("\nSetup failed. See errors above.")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

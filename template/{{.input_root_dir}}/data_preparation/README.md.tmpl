@@ -1,0 +1,19 @@
+# Data Preparation
+
+Pipeline for ingesting, preprocessing, and indexing data for your agent. Defined as a Databricks workflow in `resources/data-preparation-resource.yml`.
+
+## Tasks
+
+| Task | Notebook | Purpose |
+|------|----------|---------|
+| RawDataIngest | `data_ingestion/notebooks/DataIngestion.py` | Loads raw data into a Delta table |
+| PreprocessRawData | `data_preprocessing/notebooks/DataPreprocessing.py` | Cleans and chunks data for embedding |
+| VectorSearchIndex | `vector_search/notebooks/VectorSearchIndex.py` | Creates/updates a vector search index from processed data |
+
+## Running
+
+```bash
+databricks bundle run data_preprocessing_job -t dev
+```
+
+Or run individual notebooks interactively in the workspace. Parameters (catalog, schema, table names, etc.) are defined in the job resource YAML and passed as notebook widgets.

@@ -16,54 +16,21 @@
       "description": "CICD Platform",
       "type": "string"
     },
-    "input_default_branch": {
-      "order": 4,
-      "description": "Default Branch",
-      "type": "string"
-    },
-    "input_release_branch": {
-      "order": 5,
-      "description": "Release Branch",
-      "type": "string"
-    },
     "cloud_specific_node_type_id": {
-      "order": 6,
+      "order": 4,
       "description": "Cloud Specific Node Type ID",
       "type": "string"
     },
     "input_cli_version": {
-      "order": 7,
+      "order": 5,
       "description": "CLI Version",
       "type": "string"
     },
-    "input_test_catalog_name": {
-      "order": 8,
-      "type": "string",
-      "description": "\nName of the Test Unity Catalog",
-      "default": "test"
-    },
-    "input_staging_catalog_name": {
-      "order": 9,
-      "type": "string",
-      "description": "\nName of the Staging Unity Catalog",
-      "default": "staging"
-    },
-    "input_prod_catalog_name": {
-      "order": 10,
-      "type": "string",
-      "description": "\nName of the Prod Unity Catalog",
-      "default": "prod"
-    },
     "input_project_name": {
-      "order": 11,
+      "order": 6,
       "description": "Project Name",
-      "type": "string"
-    },
-    "input_schema_name": {
-      "order": 12,
-      "description": "Schema name for Unity Catalog",
       "type": "string"
     }
   },
-  "success_message" : "\n✨ CICD files for your AgentOps Project '{{.input_project_name}}' have been initialized!"
+  "success_message" : "\nCICD files for your AgentOps Project '{{.input_project_name}}' have been initialized!"
 }

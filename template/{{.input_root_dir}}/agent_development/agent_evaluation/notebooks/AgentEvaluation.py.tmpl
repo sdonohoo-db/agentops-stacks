@@ -1,353 +1,371 @@
 # Databricks notebook source
 # MAGIC %load_ext autoreload
 # MAGIC %autoreload 2
-# MAGIC # Enables autoreload; learn more at https://docs.databricks.com/en/files/workspace-modules.html#autoreload-for-python-modules
-# MAGIC # To disable autoreload; run %autoreload 0
 
 # COMMAND ----------
 
-# DBTITLE 1,Agent Evaluation Pipeline - Overview
+# DBTITLE 1,Agent Evaluation - Quality Gate
 ##################################################################################
 # Agent Evaluation
 #
-# Notebook that downloads an evaluation dataset and evaluates the model using
-# llm-as-a-judge with the Databricks agent framework.
+# Evaluates the agent using MLflow GenAI scorers and enforces quality thresholds
+# that gate deployment. If metrics fall below the configured thresholds, this
+# notebook exits with EVALUATION_FAILED and the job task fails.
+#
+# Uses the @invoke handler from agent_server/agent.py directly (same code that
+# runs in the Databricks App) rather than loading from model registry.
 #
 # Parameters:
-# * uc_catalog (required)           - Name of the Unity Catalog
-# * schema (required)               - Name of the schema inside Unity Catalog
-# * eval_table (required)           - Name of the table containing the evaluation dataset
-# * experiment (required)           - Name of the experiment to register the run under
-# * registered_model (required)     - Name of the model registered in mlflow
-# * model_alias (required)          - Model alias to deploy
-#
-# Widgets:
-# * Unity Catalog: Text widget to input the name of the Unity Catalog
-# * Schema: Text widget to input the name of the database inside the Unity Catalog
-# * Evaluation Table: Text widget to input the name of the table containing the evaluation dataset
-# * Experiment: Text widget to input the name of the experiment to register the run under
-# * Registered model name: Text widget to input the name of the model to register in mlflow
-# * Model Alias: Text widget to input the model alias to deploy
-#
-# Usage:
-# 1. Set the appropriate values for the widgets.
-# 2. Run to evaluate your agent.
-#
+# * uc_catalog (required)           - Unity Catalog catalog name
+# * schema (required)               - Schema name inside Unity Catalog
+# * experiment (required)           - MLflow experiment path
+# * registered_model (required)     - Registered model name (for lineage)
+# * model_alias (required)          - Model alias (for lineage)
+# * eval_threshold_mode (required)  - "relaxed" or "strict"
+# * eval_table (optional)           - Evaluation dataset table name
+# * git_source_info (optional)      - Git provenance injected by the bundle
 ##################################################################################
 
 # COMMAND ----------
 
-# DBTITLE 1,Install Prerequisites and Restart Python
-# Install prerequisite packages
-%pip install -r ../../agent_requirements.txt
+# DBTITLE 1,Install Dependencies
+%pip install -e ../../../ --quiet
 dbutils.library.restartPython()
 
 # COMMAND ----------
 
-# DBTITLE 1,Widget Creation
-# List of input args needed to run the notebook as a job.
-# Provide them via DB widgets or notebook arguments.
-
-# A Unity Catalog containing the model
-dbutils.widgets.text(
-    "uc_catalog",
-    "",
-    label="Unity Catalog",
-)
-# Name of schema
-dbutils.widgets.text(
-    "schema",
-    "",
-    label="Schema",
-)
-# Name of evaluation table
-dbutils.widgets.text(
-    "eval_table",
-    "databricks_documentation_eval",
-    label="Evaluation dataset",
-)
-# Name of experiment to register under in mlflow
-dbutils.widgets.text(
-    "experiment",
-    "/agent_function_chatbot",
-    label="Experiment name",
-)
-# Name of model registered in mlflow
-dbutils.widgets.text(
-    "registered_model",
-    "agent_function_chatbot",
-    label="Registered model name",
-)
-# Model alias
-dbutils.widgets.text(
-    "model_alias",
-    "agent_latest",
-    label="Model Alias",
-)
+# DBTITLE 1,Widget Setup
+dbutils.widgets.text("uc_catalog", "", label="Unity Catalog")
+dbutils.widgets.text("schema", "", label="Schema")
+dbutils.widgets.text("experiment", "", label="Experiment path")
+dbutils.widgets.text("registered_model", "", label="Registered model name")
+dbutils.widgets.text("model_alias", "agent_latest", label="Model alias")
+dbutils.widgets.text("eval_threshold_mode", "relaxed", label="Threshold mode")
+dbutils.widgets.text("eval_table", "databricks_documentation_eval", label="Evaluation table")
+dbutils.widgets.text("git_source_info", "", label="Git source info")
 
 # COMMAND ----------
 
-# DBTITLE 1,Define Input Variables
+# DBTITLE 1,Read Parameters
 uc_catalog = dbutils.widgets.get("uc_catalog")
 schema = dbutils.widgets.get("schema")
-eval_table = dbutils.widgets.get("eval_table")
 experiment = dbutils.widgets.get("experiment")
 registered_model = dbutils.widgets.get("registered_model")
 model_alias = dbutils.widgets.get("model_alias")
+eval_threshold_mode = dbutils.widgets.get("eval_threshold_mode")
+eval_table = dbutils.widgets.get("eval_table")
+git_source_info = dbutils.widgets.get("git_source_info")
 
-assert uc_catalog != "", "uc_catalog notebook parameter must be specified"
-assert schema != "", "schema notebook parameter must be specified"
-assert eval_table != "", "eval_table notebook parameter must be specified"
-assert experiment != "", "experiment notebook parameter must be specified"
-assert registered_model != "", "registered_model notebook parameter must be specified"
-assert model_alias != "", "model_alias notebook parameter must be specified"
-
-# COMMAND ----------
-
-# DBTITLE 1,Get Reference Documentation and Prepare for Dataset
-import pandas as pd
-from pyspark.sql import SparkSession
-
-# Initialize Spark session if not already available
-try:
-    spark
-except NameError:
-    spark = SparkSession.builder.getOrCreate()
-
-# Download the reference documentation from Databricks demos
-print("Loading reference documentation from Databricks demos...")
-ref_docs_df = pd.read_parquet(
-    'https://notebooks.databricks.com/demos/dbdemos-dataset/llm/databricks-documentation/databricks_doc_eval_set.parquet'
+assert uc_catalog, "uc_catalog must be specified"
+assert schema, "schema must be specified"
+assert experiment, "experiment must be specified"
+assert eval_threshold_mode in ("relaxed", "strict"), (
+    f"eval_threshold_mode must be 'relaxed' or 'strict', got '{eval_threshold_mode}'"
 )
 
-print(f"Loaded {len(ref_docs_df)} reference documents")
-display(ref_docs_df.head())
+# COMMAND ----------
+
+# DBTITLE 1,Evaluation Thresholds
+from dataclasses import dataclass, field
+
+
+@dataclass
+class EvaluationThresholds:
+    """Minimum passing scores for each metric. Partial metric name matching:
+    a threshold key 'safety' matches any metric containing 'safety'."""
+
+    thresholds: dict = field(default_factory=dict)
+
+    @classmethod
+    def relaxed(cls):
+        """Dev and test environments — lower bar for iteration speed."""
+        return cls(thresholds={
+            "correctness": 0.7,
+            "relevance": 0.7,
+            "safety": 1.0,
+            "groundedness": 0.8,
+        })
+
+    @classmethod
+    def strict(cls):
+        """Staging and production — high bar for deployment."""
+        return cls(thresholds={
+            "correctness": 0.9,
+            "relevance": 0.85,
+            "safety": 1.0,
+            "groundedness": 0.95,
+        })
+
+    def check(self, metrics: dict) -> tuple[bool, list[str]]:
+        """Compare evaluation metrics against thresholds.
+        Returns (passed, list_of_failure_messages)."""
+        failures = []
+        for threshold_key, min_score in self.thresholds.items():
+            # Partial match: threshold key 'safety' matches 'Safety/mean' or 'safety'
+            matched = [
+                (name, value) for name, value in metrics.items()
+                if threshold_key.lower() in name.lower()
+                and isinstance(value, (int, float))
+            ]
+            if not matched:
+                # No matching metric found — skip, don't fail
+                continue
+            for metric_name, metric_value in matched:
+                if metric_value < min_score:
+                    failures.append(
+                        f"{metric_name}: {metric_value:.3f} < {min_score:.3f}"
+                    )
+        return (len(failures) == 0, failures)
+
+
+thresholds = (
+    EvaluationThresholds.strict()
+    if eval_threshold_mode == "strict"
+    else EvaluationThresholds.relaxed()
+)
+print(f"Threshold mode: {eval_threshold_mode}")
+print(f"Thresholds: {thresholds.thresholds}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Transform Data to MLflow 3.9 GenAI Evaluation Dataset Format
-# MLflow 3.9 GenAI expects each record to have 'inputs' and 'expectations'.
-# 'inputs' keys must match the parameter name of the predict_fn (e.g. question).
-# 'expectations' can include 'expected_response' for the Correctness scorer.
-# See https://mlflow.org/docs/3.9.0/genai/eval-monitor/quickstart.md
-
-evaluation_records = []
-for idx, row in ref_docs_df.head(100).iterrows():
-    record = {
-        "inputs": {
-            "question": row.get('request', '')
-        },
-        "expectations": {
-            "expected_response": row.get('expected_response', '')
-        }
-    }
-    evaluation_records.append(record)
-
-print(f"Transformed {len(evaluation_records)} records for evaluation dataset")
-print("\nSample record structure:")
-print(evaluation_records[0])
-
-# COMMAND ----------
-
-# DBTITLE 1,Optionally Persist Evaluation Dataset (MLflow 3.9 GenAI)
-# In MLflow 3.9, datasets can be created and associated with an experiment for reuse.
-# For evaluate() we use the in-memory list above; optionally persist to UC table.
-import mlflow
-
-dataset_name = f"{uc_catalog}.{schema}.{eval_table}"
-try:
-    from mlflow.genai.datasets import get_dataset, create_dataset
-    eval_dataset = get_dataset(name=dataset_name)
-    print(f"Using existing dataset: {dataset_name}")
-except Exception as e:
-    if "does not exist" in str(e).lower() or "NotFound" in str(type(e).__name__):
-        eval_dataset = create_dataset(name=dataset_name)
-        if hasattr(eval_dataset, "merge_records"):
-            eval_dataset.merge_records(evaluation_records)
-        print("Created dataset and added records.")
-    else:
-        raise
-
-# COMMAND ----------
-
-# DBTITLE 1,Display Eval Dataset
-# Preview the dataset (if API supports to_df)
-print("\nDataset preview (first 5 records):")
-import pandas as pd
-preview_df = pd.DataFrame([
-    {"question": r["inputs"]["question"], "expected_response": r["expectations"].get("expected_response", "")}
-    for r in evaluation_records[:5]
-])
-display(preview_df)
-
-# COMMAND ----------
-
-# DBTITLE 1,Load Model and Create Prediction Wrapper
-import mlflow
-import pandas as pd
-
-# Set experiment
-mlflow.set_experiment(experiment)
-
-# Load the model
-model_uri = f"models:/{uc_catalog}.{schema}.{registered_model}@{model_alias}"
-loaded_model = mlflow.pyfunc.load_model(model_uri)
-
-# Create a simple prediction wrapper that extracts the final answer
-def predict_wrapper(question):
-    """
-    Simple prediction wrapper for evaluation.
-    Takes a question string, returns the answer string.
-    """
-    # Format input for the model
-    model_input = pd.DataFrame({
-        "input": [[{"role": "user", "content": question}]]
-    })
-    response = loaded_model.predict(model_input)
-
-    # Extract the final text response from the output
-    # The output is a list of items (function calls, tool outputs, messages)
-    # We need to find the last message with type='message' and role='assistant'
-    for item in reversed(response['output']):
-        if item.get('type') == 'message' and item.get('role') == 'assistant':
-            # Content can be a list or a string
-            content = item['content']
-            if isinstance(content, list):
-                # Get the last text content item
-                for c in reversed(content):
-                    if c.get('type') == 'text':
-                        return c['text']
-            elif isinstance(content, str):
-                return content
-
-    # Fallback to the original extraction method if the above doesn't work
-    return response['output'][-1]['content'][-1]['text']
-
-# COMMAND ----------
-
-# DBTITLE 1,Test predict_wrapper with a sample question
-# Test the wrapper with a sample question to inspect the response
-test_question = "What is Databricks?"
-print(f"Testing with question: {test_question}")
-print("\n" + "="*80)
-
-test_input = pd.DataFrame({
-    "input": [[{"role": "user", "content": test_question}]]
-})
-test_response = loaded_model.predict(test_input)
-
-print("Raw response structure:")
-print(f"Response keys: {test_response.keys()}")
-print(f"\nNumber of output items: {len(test_response['output'])}")
-print("\nOutput items:")
-for i, item in enumerate(test_response['output']):
-    print(f"\n[{i}] Type: {item.get('type')}, Role: {item.get('role', 'N/A')}")
-    if 'content' in item:
-        content = item['content']
-        if isinstance(content, list):
-            print(f"    Content: list with {len(content)} items")
-            for j, c in enumerate(content):
-                if isinstance(c, dict):
-                    print(f"      [{j}] {c.get('type', 'unknown')}: {str(c.get('text', c))[:100]}...")
-                else:
-                    print(f"      [{j}] {str(c)[:100]}...")
-        else:
-            print(f"    Content: {str(content)[:100]}...")
-
-print("\n" + "="*80)
-print(f"Extracted answer: {predict_wrapper(test_question)}")
-print("="*80)
-
-# COMMAND ----------
-
-# DBTITLE 1,Define Evaluation Scorers (MLflow 3.9 GenAI)
-# MLflow 3.9 GenAI uses mlflow.genai.scorers for LLM-as-a-judge and custom scorers.
-# See https://mlflow.org/docs/3.9.0/genai/eval-monitor/quickstart.md
-
-from mlflow.genai import scorer
-from mlflow.genai.scorers import Correctness, Guidelines
-
-# Correctness: uses "expected_response" from expectations to score factual correctness
-# Guidelines: custom guideline for response quality (e.g. English, professional)
-@scorer
-def response_quality(outputs: str) -> bool:
-    """Evaluate if the response is concise and does not expose internal tool names."""
-    if not outputs or not isinstance(outputs, str):
-        return False
-    # Prefer responses that don't mention internal functions
-    internal_markers = ["get_table_info()", "get_", "tool_call", "function call"]
-    return not any(m in outputs for m in internal_markers)
-
-scorers = [
-    Correctness(),  # Compares output to expectations["expected_response"]
-    Guidelines(
-        name="is_professional",
-        guidelines="The answer must be clear, professional, and in English. Avoid mentioning internal tools or functions.",
-    ),
-    response_quality,
-]
-print(f"Loaded {len(scorers)} evaluation scorers (MLflow 3.9 GenAI)")
-
-# COMMAND ----------
-
-# DBTITLE 1,Run Evaluation (MLflow 3.9 GenAI)
-# MLflow 3.9 GenAI: mlflow.genai.evaluate(data, predict_fn, scorers)
-# https://mlflow.org/docs/3.9.0/genai/eval-monitor/quickstart.md
-
+# DBTITLE 1,Import Agent
+import sys
 import os
+
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Importing registers the @invoke/@stream handlers
+import agent_server.agent  # noqa: F401
+
+from mlflow.genai.agent_server import get_invoke_function
+
+invoke_fn = get_invoke_function()
+assert invoke_fn is not None, (
+    "No @invoke handler found. Make sure agent_server/agent.py defines a function "
+    "decorated with @invoke(). Run 'uv run setup' if you haven't installed an agent framework."
+)
+
+# COMMAND ----------
+
+# DBTITLE 1,Build Predict Function
+import asyncio
+from mlflow.types.responses import ResponsesAgentRequest
+
+# Wrap the invoke function for mlflow.genai.evaluate().
+# The predict_fn signature must match the keys in the evaluation data's 'inputs' dict.
+if asyncio.iscoroutinefunction(invoke_fn):
+    import nest_asyncio
+    nest_asyncio.apply()
+
+    def predict_fn(input: list[dict], **kwargs) -> dict:
+        req = ResponsesAgentRequest(input=input)
+        loop = asyncio.get_event_loop()
+        response = loop.run_until_complete(invoke_fn(req))
+        return response.model_dump()
+else:
+    def predict_fn(input: list[dict], **kwargs) -> dict:
+        req = ResponsesAgentRequest(input=input)
+        response = invoke_fn(req)
+        return response.model_dump()
+
+# Quick smoke test
+test_response = predict_fn(input=[{"role": "user", "content": "Hello"}])
+print(f"Smoke test passed — response has {len(test_response.get('output', []))} output items")
+
+# COMMAND ----------
+
+# DBTITLE 1,Load Evaluation Data
+# Two evaluation modes:
+# 1. ConversationSimulator — multi-turn tests with simulated users (default)
+# 2. Reference dataset — single-turn Q&A from a UC table (if eval_table exists)
+
+from mlflow.genai.scorers import (
+    Correctness,
+    RelevanceToQuery,
+    Safety,
+    Fluency,
+    Guidelines,
+)
+
+# Check if a reference eval table exists in Unity Catalog
+eval_data = None
+use_simulator = True
+scorers = []
+
+if eval_table:
+    try:
+        table_name = f"{uc_catalog}.{schema}.{eval_table}"
+        eval_df = spark.read.table(table_name).toPandas()
+        if len(eval_df) > 0:
+            # Transform to MLflow GenAI format
+            eval_data = []
+            for _, row in eval_df.iterrows():
+                record = {
+                    "inputs": {
+                        "input": [{"role": "user", "content": str(row.get("request", row.get("question", "")))}]
+                    },
+                }
+                expected = row.get("expected_response", row.get("expected_answer", ""))
+                if expected:
+                    record["expectations"] = {"expected_response": str(expected)}
+                eval_data.append(record)
+
+            use_simulator = False
+            print(f"Loaded {len(eval_data)} records from {table_name}")
+    except Exception as e:
+        print(f"No eval table found ({e}), falling back to ConversationSimulator")
+
+if use_simulator:
+    from mlflow.genai.simulators import ConversationSimulator
+
+    test_cases = [
+        {
+            "goal": "Get a clear, accurate answer to a straightforward question",
+            "persona": "A technical user who asks direct questions and expects concise answers.",
+            "simulation_guidelines": [
+                "Ask 2-3 follow-up questions to test depth of knowledge.",
+            ],
+        },
+        {
+            "goal": "Understand a complex topic through conversation",
+            "persona": "A non-technical user who needs concepts explained simply.",
+            "simulation_guidelines": [
+                "Start broad, then ask for specifics.",
+                "If the answer is unclear, ask for clarification.",
+            ],
+        },
+    ]
+
+    eval_data = ConversationSimulator(
+        test_cases=test_cases,
+        max_turns=4,
+        user_model="databricks:/databricks-claude-sonnet-4-5",
+    )
+    print("Using ConversationSimulator for evaluation")
+
+# COMMAND ----------
+
+# DBTITLE 1,Configure Scorers
+from mlflow.genai.scorers import (
+    Correctness,
+    RelevanceToQuery,
+    Safety,
+    Fluency,
+    Guidelines,
+)
+
+if use_simulator:
+    # Conversational scorers — test multi-turn behavior
+    from mlflow.genai.scorers import (
+        Completeness,
+        ConversationalSafety,
+        ConversationCompleteness,
+        KnowledgeRetention,
+        ToolCallCorrectness,
+        UserFrustration,
+    )
+    scorers = [
+        RelevanceToQuery(),
+        Safety(),
+        Fluency(),
+        Completeness(),
+        ConversationCompleteness(),
+        ConversationalSafety(),
+        KnowledgeRetention(),
+        ToolCallCorrectness(),
+        UserFrustration(),
+    ]
+else:
+    # Reference dataset scorers — test factual correctness
+    scorers = [
+        Correctness(),
+        RelevanceToQuery(),
+        Safety(),
+        Fluency(),
+        Guidelines(
+            name="groundedness",
+            guidelines=(
+                "The response must be grounded in verifiable facts. "
+                "It should not fabricate information or hallucinate details "
+                "not supported by the context or question."
+            ),
+        ),
+    ]
+
+print(f"Configured {len(scorers)} scorers")
+
+# COMMAND ----------
+
+# DBTITLE 1,Run Evaluation
+import mlflow
 import warnings
 
-os.environ["DATABRICKS_VECTOR_SEARCH_DISABLE_NOTICE"] = "1"
-warnings.filterwarnings('ignore', message='.*notebook authentication token.*')
+warnings.filterwarnings("ignore", message=".*notebook authentication token.*")
 
 mlflow.set_experiment(experiment)
 
-print("Starting evaluation run (MLflow 3.9 GenAI)...")
-print(f"Dataset size: {len(evaluation_records)} records")
-print(f"Model: {model_uri}")
-print(f"Number of scorers: {len(scorers)}")
-
-# predict_fn must accept the same keyword as in inputs (here: question)
-def qa_predict_fn(question: str) -> str:
-    """Wrapper for mlflow.genai.evaluate; key must match inputs['question']."""
-    return predict_wrapper(question)
+print("Starting evaluation...")
+print(f"Scorers: {[type(s).__name__ if hasattr(s, '__class__') else s.__name__ for s in scorers]}")
 
 results = mlflow.genai.evaluate(
-    data=evaluation_records,
-    predict_fn=qa_predict_fn,
+    data=eval_data,
+    predict_fn=predict_fn,
     scorers=scorers,
 )
 
-print("\nEvaluation complete!")
-if hasattr(results, "metrics"):
-    print(f"Metrics: {results.metrics}")
+# COMMAND ----------
+
+# DBTITLE 1,Display Results
+print("=" * 80)
+print("EVALUATION RESULTS")
+print("=" * 80)
+
+if hasattr(results, "metrics") and results.metrics:
+    for name, value in sorted(results.metrics.items()):
+        if isinstance(value, float):
+            print(f"  {name}: {value:.3f}")
+        else:
+            print(f"  {name}: {value}")
+
 if hasattr(results, "tables") and results.tables:
-    for name, tbl in results.tables.items():
-        print(f"Table: {name}")
+    for table_name, table_df in results.tables.items():
+        # Drop complex nested columns for display
+        skip_cols = {"assessments", "spans", "trace", "trace_metadata", "tags"}
+        display_cols = [c for c in table_df.columns if c not in skip_cols]
+        print(f"\n{table_name}:")
+        display(table_df[display_cols])
 
 # COMMAND ----------
 
-# DBTITLE 1,Display Evaluation Results
-print("\n" + "="*80)
-print("EVALUATION SUMMARY (MLflow 3.9 GenAI)")
-print("="*80)
+# DBTITLE 1,Quality Gate
+print("=" * 80)
+print(f"QUALITY GATE — {eval_threshold_mode.upper()} thresholds")
+print("=" * 80)
 
-if 'results' in locals():
-    if hasattr(results, "metrics") and results.metrics:
-        print("\nMetrics:")
-        for metric_name, metric_value in results.metrics.items():
-            print(f"  {metric_name}: {metric_value}")
-    if hasattr(results, "tables") and results.tables:
-        print("\nDetailed results:")
-        for table_name, table_df in results.tables.items():
-            print(f"  Table: {table_name}")
-            # Drop complex nested columns that can't be converted to Arrow format
-            display_cols = [col for col in table_df.columns 
-                          if col not in ['assessments', 'spans', 'trace', 'trace_metadata', 'tags']]
-            display(table_df[display_cols])
-    print(f"\nExperiment: {experiment}")
-    print("Check MLflow UI for traces and evaluation details.")
+if not hasattr(results, "metrics") or not results.metrics:
+    print("WARNING: No metrics returned from evaluation. Skipping quality gate.")
+    dbutils.notebook.exit("EVALUATION_NO_METRICS")
+
+passed, failures = thresholds.check(results.metrics)
+
+if passed:
+    print("PASSED — all metrics meet thresholds")
+    for key, min_score in thresholds.thresholds.items():
+        matched = [
+            (n, v) for n, v in results.metrics.items()
+            if key.lower() in n.lower() and isinstance(v, (int, float))
+        ]
+        for name, value in matched:
+            print(f"  {name}: {value:.3f} >= {min_score:.3f}")
+    dbutils.notebook.exit("EVALUATION_PASSED")
 else:
-    print("\nEvaluation did not produce results. Check logs above.")
-
-print("="*80)
+    print("FAILED — the following metrics are below threshold:")
+    for f in failures:
+        print(f"  {f}")
+    print()
+    print("To adjust thresholds, set eval_threshold_mode in databricks.yml")
+    print("or override individual thresholds in this notebook.")
+    # Exit with failure message — this causes the job task to fail
+    dbutils.notebook.exit("EVALUATION_FAILED")
