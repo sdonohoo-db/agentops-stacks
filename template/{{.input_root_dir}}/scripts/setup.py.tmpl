@@ -21,6 +21,11 @@ GITHUB_API = f"https://api.github.com/repos/{REPO}/contents/"
 PROJECT_ROOT = Path(__file__).parent.parent
 PREFIXES = ("agent-", "mcp-server-")
 
+# Templates incompatible with this Python-based stacks template
+EXCLUDED_TEMPLATES = {
+    "agent-langchain-ts",  # TypeScript — incompatible with Python project structure
+}
+
 
 def fetch_template_list() -> list[dict]:
     """Get available templates with descriptions from GitHub API.
@@ -33,6 +38,7 @@ def fetch_template_list() -> list[dict]:
         names = sorted(
             e["name"] for e in entries
             if e["type"] == "dir" and e["name"].startswith(PREFIXES)
+            and e["name"] not in EXCLUDED_TEMPLATES
         )
     except Exception:
         print("GitHub API unavailable, trying git...")
@@ -46,7 +52,10 @@ def fetch_template_list() -> list[dict]:
                     ["git", "-C", "/tmp/app-templates-index", "ls-tree", "--name-only", "HEAD"],
                     capture_output=True, text=True,
                 )
-                names = sorted(n for n in result.stdout.strip().split("\n") if n.startswith(PREFIXES))
+                names = sorted(
+                    n for n in result.stdout.strip().split("\n")
+                    if n.startswith(PREFIXES) and n not in EXCLUDED_TEMPLATES
+                )
                 shutil.rmtree("/tmp/app-templates-index", ignore_errors=True)
         except Exception:
             pass
@@ -253,6 +262,169 @@ def _write_toml(data: dict, path: Path):
     path.write_text("\n".join(lines).strip() + "\n")
 
 
+# Resource requirement tags for templates that need external resources
+RESOURCE_TAGS = {
+    "agent-langgraph-long-term-memory": "[requires Lakebase]",
+    "agent-langgraph-short-term-memory": "[requires Lakebase]",
+    "agent-openai-agents-sdk-short-term-memory": "[requires Lakebase]",
+    "agent-openai-agents-sdk-long-running-agent": "[requires Lakebase]",
+    "mcp-server-open-api-spec": "[requires UC Connection + Volume]",
+}
+
+# Templates that need Lakebase
+LAKEBASE_TEMPLATES = {
+    "agent-langgraph-long-term-memory",
+    "agent-langgraph-short-term-memory",
+    "agent-openai-agents-sdk-short-term-memory",
+    "agent-openai-agents-sdk-long-running-agent",
+}
+
+# Solution pattern templates (future — not yet available)
+SOLUTION_PATTERNS = [
+    {"name": "RAG agent", "tag": "[requires Vector Search + UC Volume]"},
+    {"name": "Document Intelligence agent", "tag": "[requires UC Volume]"},
+    {"name": "RPA / Process Automation agent", "tag": "[requires Lakebase + API connections]"},
+]
+
+
+def build_menu(templates: list[dict]) -> list[dict]:
+    """Organize templates into grouped menu entries.
+
+    Returns a flat list of dicts with 'name', 'group', 'selectable', and
+    optionally 'action' (for special entries like empty scaffold).
+    """
+    menu = []
+
+    # Build Agent group
+    menu.append({"name": "Empty Agent Scaffold", "group": "Build Agent",
+                 "selectable": True, "action": "empty_scaffold"})
+    menu.append({"name": "Create DAB from existing solution", "group": "Build Agent",
+                 "selectable": False, "action": "capture", "tag": "(Future)"})
+
+    # Agent App Example Templates — simple first, then memory-enabled, then MCP
+    agents_simple = [t for t in templates
+                     if t["name"].startswith("agent-") and t["name"] not in LAKEBASE_TEMPLATES]
+    agents_memory = [t for t in templates
+                     if t["name"] in LAKEBASE_TEMPLATES]
+    mcp_servers = [t for t in templates
+                   if t["name"].startswith("mcp-server-")]
+
+    for t in agents_simple + agents_memory + mcp_servers:
+        tag = RESOURCE_TAGS.get(t["name"], "")
+        menu.append({"name": t["name"], "group": "Agent App Example Templates",
+                     "selectable": True, "action": "install", "tag": tag,
+                     "description": t.get("description", "")})
+
+    # Solution Patterns (future)
+    for sp in SOLUTION_PATTERNS:
+        menu.append({"name": sp["name"], "group": "Solution Patterns",
+                     "selectable": False, "action": "future", "tag": sp["tag"] + " (Future)"})
+
+    return menu
+
+
+def print_menu(menu: list[dict]) -> None:
+    """Print the grouped menu with numbered entries."""
+    max_name = max(len(e["name"]) for e in menu)
+    current_group = None
+    idx = 1
+
+    for entry in menu:
+        if entry["group"] != current_group:
+            current_group = entry["group"]
+            print(f"\n  {current_group}")
+
+        tag = f"  {entry.get('tag', '')}" if entry.get("tag") else ""
+        desc = f"  — {entry['description']}" if entry.get("description") else ""
+
+        if entry["selectable"]:
+            print(f"    {idx:2d}) {entry['name']:<{max_name}}{tag}{desc}")
+            idx += 1
+        else:
+            print(f"     -  {entry['name']:<{max_name}}{tag}")
+
+    print(f"\n     0) Skip — configure agent code manually")
+    return idx - 1  # total selectable count
+
+
+def install_empty_scaffold():
+    """Generate a minimal working agent locally without pulling from app-templates."""
+    agent_dir = PROJECT_ROOT / "agent_server"
+    agent_dir.mkdir(exist_ok=True)
+
+    # Minimal agent.py with @invoke/@stream contract
+    agent_py = agent_dir / "agent.py"
+    if not agent_py.exists() or agent_py.read_text().strip().startswith("raise NotImplementedError"):
+        agent_py.write_text('''\
+"""Minimal agent scaffold — fill in your own logic."""
+
+import logging
+from datetime import datetime
+from typing import AsyncGenerator
+
+import mlflow
+from mlflow.genai.agent_server import invoke, stream
+from mlflow.types.responses import (
+    ResponsesAgentRequest,
+    ResponsesAgentResponse,
+    ResponsesAgentStreamEvent,
+    create_text_delta,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@invoke()
+async def invoke_handler(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+    """Handle a single request. Replace this with your agent logic."""
+    outputs = [
+        event.item
+        async for event in stream_handler(request)
+        if event.type == "response.output_item.done"
+    ]
+    return ResponsesAgentResponse(output=outputs)
+
+
+@stream()
+async def stream_handler(
+    request: ResponsesAgentRequest,
+) -> AsyncGenerator[ResponsesAgentStreamEvent, None]:
+    """Stream a response. Replace this with your agent logic."""
+    # Placeholder: echo back confirming the scaffold is working
+    text = f"Agent scaffold is running. Current time: {datetime.now().isoformat()}"
+    yield create_text_delta(text)
+''')
+    print(f"  Created {agent_py.relative_to(PROJECT_ROOT)}")
+
+    # Minimal utils.py
+    utils_py = agent_dir / "utils.py"
+    if not utils_py.exists():
+        utils_py.write_text('''\
+"""Shared utilities for the agent server."""
+
+from databricks.sdk import WorkspaceClient
+from mlflow.genai.agent_server import get_request_headers
+from mlflow.types.responses import ResponsesAgentRequest
+
+
+def get_session_id(request: ResponsesAgentRequest) -> str | None:
+    if request.context and request.context.conversation_id:
+        return request.context.conversation_id
+    if request.custom_inputs and isinstance(request.custom_inputs, dict):
+        return request.custom_inputs.get("session_id")
+    return None
+
+
+def get_user_workspace_client() -> WorkspaceClient:
+    token = get_request_headers().get("x-forwarded-access-token")
+    return WorkspaceClient(token=token, auth_type="pat")
+''')
+    print(f"  Created {utils_py.relative_to(PROJECT_ROOT)}")
+
+    print("\nEmpty Agent Scaffold installed.")
+    print("Edit agent_server/agent.py to add your agent logic.")
+
+
 def main():
     print("AgentOps Setup")
     print("=" * 50)
@@ -262,49 +434,47 @@ def main():
     if not templates:
         print("Could not fetch template list. Check your network connection.")
         print(f"You can browse templates at: https://github.com/{REPO}")
-        sys.exit(1)
+        print("You can still select 'Empty Agent Scaffold' to start without a template.\n")
 
-    # Group by type
-    agents = [t for t in templates if t["name"].startswith("agent-")]
-    mcp_servers = [t for t in templates if t["name"].startswith("mcp-server-")]
-
-    # Find longest name for alignment
-    max_name = max(len(t["name"]) for t in templates)
-
-    print("Agent frameworks:")
-    idx = 1
-    for t in agents:
-        desc = f"  — {t['description']}" if t["description"] else ""
-        print(f"  {idx:2d}) {t['name']:<{max_name}}{desc}")
-        idx += 1
-
-    if mcp_servers:
-        print("\nMCP servers:")
-        for t in mcp_servers:
-            desc = f"  — {t['description']}" if t["description"] else ""
-            print(f"  {idx:2d}) {t['name']:<{max_name}}{desc}")
-            idx += 1
-
-    print(f"\n   0) Skip — configure agent code manually")
+    menu = build_menu(templates)
+    selectable = [e for e in menu if e["selectable"]]
+    max_choice = print_menu(menu)
 
     while True:
         try:
-            choice = input(f"\nSelect a template [1-{idx-1}, 0 to skip]: ").strip()
+            choice = input(f"\nSelect a template [1-{max_choice}, 0 to skip]: ").strip()
             if choice == "0":
                 print("\nSkipped. Edit agent_server/agent.py manually.")
                 return
             num = int(choice)
-            if 1 <= num <= len(templates):
+            if 1 <= num <= max_choice:
                 break
         except (ValueError, EOFError):
             pass
         print("Invalid selection, try again.")
 
-    selected = templates[num - 1]["name"]
-    print(f"\nInstalling '{selected}'...")
+    selected = selectable[num - 1]
 
-    if sparse_checkout(selected, PROJECT_ROOT):
-        print(f"\nInstalled '{selected}' into project.")
+    if selected["action"] == "empty_scaffold":
+        install_empty_scaffold()
+        print("\nNext steps:")
+        print("  1. Edit agent_server/agent.py with your agent logic")
+        print("  2. Run 'uv sync' to install dependencies")
+        print("  3. Run 'uv run start-server' to test locally")
+        print("  4. Run 'databricks bundle deploy -t dev' to deploy")
+        return
+
+    template_name = selected["name"]
+    print(f"\nInstalling '{template_name}'...")
+
+    # Print resource prerequisites if applicable
+    tag = RESOURCE_TAGS.get(template_name, "")
+    if tag:
+        print(f"\n  Note: This template {tag.lower()}")
+        print("  See docs/agentops-setup.md for setup instructions.\n")
+
+    if sparse_checkout(template_name, PROJECT_ROOT):
+        print(f"\nInstalled '{template_name}' into project.")
         print("\nNext steps:")
         print("  1. Review agent_server/agent.py and configure your agent")
         print("  2. Run 'uv sync' to install dependencies")
