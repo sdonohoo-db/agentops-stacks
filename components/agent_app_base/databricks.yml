@@ -1,0 +1,41 @@
+# Component: agent_app_base
+# Base Databricks App with MLflow experiment
+#
+# Add this snippet to your bundle's resources/ directory or merge into databricks.yml.
+# Requires 'app_name' variable defined in the root bundle config.
+
+variables:
+  app_name:
+    description: "Databricks App name (lowercase, numbers, dashes only)"
+
+resources:
+  experiments:
+    agent_experiment:
+      name: /Users/${workspace.current_user.userName}/${bundle.name}
+
+  apps:
+    agent_app:
+      name: ${bundle.target}-${var.app_name}
+      description: "${bundle.name} Agent App - ${bundle.target}"
+      source_code_path: ../
+      config:
+        command: ["uv", "run", "start-app"]
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: API_PROXY
+            value: "http://localhost:8000/invocations"
+          - name: CHAT_APP_PORT
+            value: "3000"
+          - name: CHAT_PROXY_TIMEOUT_SECONDS
+            value: "300"
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+
+      resources:
+        - name: "experiment"
+          experiment:
+            experiment_id: ${resources.experiments.agent_experiment.id}
+            permission: "CAN_MANAGE"
