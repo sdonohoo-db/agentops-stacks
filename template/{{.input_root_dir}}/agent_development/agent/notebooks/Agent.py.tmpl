@@ -1,289 +1,161 @@
 # Databricks notebook source
 # MAGIC %load_ext autoreload
 # MAGIC %autoreload 2
-# MAGIC # Enables autoreload; learn more at https://docs.databricks.com/en/files/workspace-modules.html#autoreload-for-python-modules
-# MAGIC # To disable autoreload; run %autoreload 0
 
 # COMMAND ----------
 
-# DBTITLE 1,Agent Creation Pipeline - Overview
-###################################################################################
-# Agent Chain Creation
+# DBTITLE 1,Agent Development - Log and Register
+##################################################################################
+# Agent Development
 #
-# This notebook shows an example of a RAG-based Agent with multiple retrievers.
+# Imports the agent from agent_server/ (installed by 'uv run setup'), tests it,
+# logs it to MLflow, and registers it in Unity Catalog. The agent code itself
+# lives in agent_server/agent.py — this notebook handles the MLflow model
+# lifecycle, not the agent logic.
 #
 # Parameters:
-# * uc_catalog (required)                     - Name of the Unity Catalog
-# * schema (required)                         - Name of the schema inside Unity Catalog
-# * vector_search_endpoint (required)         - Name of the vector search endpoint
-# * vector_search_index (required)            - Name of the vector search index
-# * model_serving_endpopint (required)        - Name of the model endpoint to serve
-# * foundation_model_endpoint (required)      - Name and Identifier of the foundation model endpoint
-# * experiment (required)                     - Name of the experiment to register the run under
-# * registered_model (required)               - Name of the model to register in mlflow
-# * max_words (required)                      - Maximum number of words to return in the response
-# * model_alias (required)                    - Alias to give to newly registered model
-#
-# Widgets:
-# * Unity Catalog: Text widget to input the name of the Unity Catalog
-# * Schema: Text widget to input the name of the database inside the Unity Catalog
-# * Vector Search endpoint: Text widget to input the name of the vector search endpoint
-# * Vector search index: Text widget to input the name of the vector search index
-# * Agent model endppoint: Text widget to input the name of the agent model endpoint
-# * Experiment: Text widget to input the name of the experiment to register the run under
-# * Registered model name: Text widget to input the name of the model to register in mlflow
-# * Max words: Text widget to input the maximum integer number of words to return in the response
-# * Model Alias: Text widget to input the alias of the model to register in mlflow
-#
-# Usage:
-# 1. Set the appropriate values for the widgets.
-# 2. Run the pipeline to create and register an agent with tool calling.
-#
+# * uc_catalog (required)       - Unity Catalog catalog name
+# * schema (required)           - Schema name inside Unity Catalog
+# * experiment (required)       - MLflow experiment path
+# * registered_model (required) - Model name to register in Unity Catalog
+# * model_alias (required)      - Alias for the registered model version
+# * git_source_info (optional)  - Git provenance injected by the bundle
 ##################################################################################
 
 # COMMAND ----------
 
-# DBTITLE 1,Install Prerequisites
-# Install prerequisite packages
-%pip install -r ../../agent_requirements.txt
+# DBTITLE 1,Install Dependencies
+# Install from the project's pyproject.toml so all framework-specific deps are included
+%pip install -e ../../../ --quiet
 dbutils.library.restartPython()
 
 # COMMAND ----------
 
-# DBTITLE 1,Widget Creation
-# List of input args needed to run this notebook as a job
-# Provide them via DB widgets or notebook arguments
-
-# A Unity Catalog containing the preprocessed data
-dbutils.widgets.text(
-    "uc_catalog",
-    "",
-    label="Unity Catalog",
-)
-# Name of schema
-dbutils.widgets.text(
-    "schema",
-    "",
-    label="Schema",
-)
-# Name of vector search endpoint containing the preprocessed index
-dbutils.widgets.text(
-    "vector_search_endpoint",
-    "ai_agent_endpoint",
-    label="Vector Search endpoint",
-)
-# Name of vector search index containing the preprocessed index
-dbutils.widgets.text(
-    "vector_search_index",
-    "databricks_documentation_vs_index",
-    label="Vector Search index",
-)
-# Foundation model to use
-dbutils.widgets.text(
-    "foundation_model_endpoint",
-    "databricks-meta-llama-3-3-70b-instruct",
-    label="Foundation model endpoint",
-)
-# Name of experiment to register under in mlflow
-dbutils.widgets.text(
-    "experiment",
-    "/agent_function_chatbot",
-    label="Experiment name",
-)
-# Name of model to register in mlflow
-dbutils.widgets.text(
-    "registered_model",
-    "agent_function_chatbot",
-    label="Registered model name",
-)
-# Max words for summarization
-dbutils.widgets.text(
-    "max_words",
-    "20",
-    label="Max Words",
-)
-# Model alias
-dbutils.widgets.text(
-    "model_alias",
-    "agent_latest",
-    label="Model Alias",
-)
+# DBTITLE 1,Widget Setup
+dbutils.widgets.text("uc_catalog", "", label="Unity Catalog")
+dbutils.widgets.text("schema", "", label="Schema")
+dbutils.widgets.text("experiment", "", label="Experiment path")
+dbutils.widgets.text("registered_model", "", label="Registered model name")
+dbutils.widgets.text("model_alias", "agent_latest", label="Model alias")
+dbutils.widgets.text("git_source_info", "", label="Git source info")
 
 # COMMAND ----------
 
-# DBTITLE 1,Define Input Variables
+# DBTITLE 1,Read Parameters
 uc_catalog = dbutils.widgets.get("uc_catalog")
 schema = dbutils.widgets.get("schema")
-vector_search_endpoint = dbutils.widgets.get("vector_search_endpoint")
-vector_search_index = dbutils.widgets.get("vector_search_index")
-foundation_model_endpoint = dbutils.widgets.get("foundation_model_endpoint")
 experiment = dbutils.widgets.get("experiment")
 registered_model = dbutils.widgets.get("registered_model")
-max_words = dbutils.widgets.get("max_words")
 model_alias = dbutils.widgets.get("model_alias")
+git_source_info = dbutils.widgets.get("git_source_info")
 
-assert uc_catalog != "", "uc_catalog notebook parameter must be specified"
-assert schema != "", "schema notebook parameter must be specified"
-assert vector_search_endpoint != "", "vector_search_endpoint notebook parameter must be specified"
-assert vector_search_index != "", "vector_search_index notebook parameter must be specified"
-assert foundation_model_endpoint != "", "foundation_model_endpoint notebook parameter must be specified"
-assert experiment != "", "experiment notebook parameter must be specified"
-assert registered_model != "", "registered_model notebook parameter must be specified"
-assert max_words != "", "max_words notebook parameter must be specified"
-assert model_alias != "", "model_alias notebook parameter must be specified"
+assert uc_catalog, "uc_catalog must be specified"
+assert schema, "schema must be specified"
+assert experiment, "experiment must be specified"
+assert registered_model, "registered_model must be specified"
+assert model_alias, "model_alias must be specified"
 
 # COMMAND ----------
 
-# DBTITLE 1,Create a DatabricksFunctionClient and set as default
-from unitycatalog.ai.core.base import set_uc_function_client
-from unitycatalog.ai.core.databricks import DatabricksFunctionClient
+# DBTITLE 1,Import Agent and Get Invoke Function
+import sys
+import os
 
-client = DatabricksFunctionClient()
+# The bundle syncs agent_server/ to the workspace root alongside this notebook's
+# parent directories. Add the project root so agent_server is importable.
+project_root = os.path.abspath(os.path.join(os.getcwd(), "../../.."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-# sets the default uc function client
-set_uc_function_client(client)
+# Importing the agent module registers the @invoke/@stream handlers
+import agent_server.agent  # noqa: F401
 
+from mlflow.genai.agent_server import get_invoke_function
+
+invoke_fn = get_invoke_function()
+assert invoke_fn is not None, (
+    "No @invoke handler found. Make sure agent_server/agent.py defines a function "
+    "decorated with @invoke(). Run 'uv run setup' if you haven't installed an agent framework."
+)
+
+print(f"Agent loaded: {invoke_fn.__name__}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Test Agent
+import asyncio
+from mlflow.types.responses import ResponsesAgentRequest
+
+test_request = ResponsesAgentRequest(
+    input=[{"role": "user", "content": "What is Databricks?"}]
+)
+
+if asyncio.iscoroutinefunction(invoke_fn):
+    import nest_asyncio
+    nest_asyncio.apply()
+    loop = asyncio.get_event_loop()
+    test_response = loop.run_until_complete(invoke_fn(test_request))
+else:
+    test_response = invoke_fn(test_request)
+
+print("Agent response:")
+response_dict = test_response.model_dump()
+for item in response_dict.get("output", []):
+    if item.get("type") == "message" and item.get("role") == "assistant":
+        content = item.get("content", [])
+        if isinstance(content, list):
+            for c in content:
+                if isinstance(c, dict) and c.get("type") == "text":
+                    print(c["text"][:500])
+        elif isinstance(content, str):
+            print(content[:500])
 
 # COMMAND ----------
 
-# DBTITLE 1, Create UC functions (inline SQL templates; no external utils)
-# See https://docs.databricks.com/sql/language-manual/functions/ai_classify for more AI functions
-ask_ai_function = """CREATE OR REPLACE FUNCTION {ask_ai_function_name}(question STRING COMMENT 'question to ask')
-RETURNS STRING
-COMMENT 'answer the question using chosen model'
-RETURN SELECT ai_gen(question)
-"""
-summarization_function = """CREATE OR REPLACE FUNCTION {summarization_function_name}(text STRING COMMENT 'content to parse', max_words INT COMMENT 'max number of words in the response, must be non-negative integer, if set to 0 then no limit')
-RETURNS STRING
-COMMENT 'summarize the content and limit response to max_words'
-RETURN SELECT ai_summarize(text, max_words)
-"""
-translate_function = """CREATE OR REPLACE FUNCTION {translate_function_name}(content STRING COMMENT 'content to translate', language STRING COMMENT 'target language')
-RETURNS STRING
-COMMENT 'translate the content to target language, currently only english <-> spanish translation is supported'
-RETURN SELECT ai_translate(content, language)
-"""
-
-ask_ai_function_name = f"{uc_catalog}.{schema}.ask_ai"
-function_info = client.create_function(sql_function_body = ask_ai_function.format(ask_ai_function_name = ask_ai_function_name))
-
-summarization_function_name = f"{uc_catalog}.{schema}.summarize"
-function_info = client.create_function(sql_function_body = summarization_function.format(summarization_function_name = summarization_function_name))
-
-translate_function_name = f"{uc_catalog}.{schema}.translate"
-function_info = client.create_function(sql_function_body = translate_function.format(translate_function_name = translate_function_name))
-
-# COMMAND ----------
-# DBTITLE 1, Create a model config
-
-import yaml
-
-config = {
-    'llm_config': {
-        'endpoint': foundation_model_endpoint,
-        'max_tokens': 500,
-        'temperature': 0.01,
-    },
-    'catalog': uc_catalog,
-    'schema': schema,
-    'system_prompt': "You are a Databricks expert.",
-    'vector_search_config': {
-        'vector_search_index': vector_search_index,
-        'embedding_model': 'databricks-gte-large-en',
-        'num_results': 1,
-        'columns': ['url', 'content'],
-        'query_type': 'ANN'
-    }
-}
-
-with open('ModelConfig.yml', 'w') as f:
-    yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-
-# COMMAND ----------
-# DBTITLE 1,Test Agent Before Logging
-
-from app import AGENT
-
-# Test the agent directly with a sample query
-test_question = "What is Databricks?"
-print(f"Testing agent with question: {test_question}")
-print("="*80)
-
-test_answer = AGENT.predict({"input": [{"role": "user", "content": test_question}]})
-print(f"Answer: {test_answer}")
-print("="*80)
-print("Agent test completed. Check MLflow trace in the experiment UI to verify tool execution.")
-
-# COMMAND ----------
-# DBTITLE 1, Log agent with resources
-
+# DBTITLE 1,Log Agent to MLflow
 import mlflow
-from importlib.metadata import version
 
 mlflow.set_experiment(experiment)
 
-with mlflow.start_run():
+# Log the agent as a code-based model. The agent_server directory contains
+# the actual agent logic; we log it as an artifact so it's captured in the run.
+with mlflow.start_run() as run:
+    if git_source_info:
+        mlflow.log_param("git_source_info", git_source_info)
+
     model_info = mlflow.pyfunc.log_model(
-        python_model="app.py",
-        name="model",
-        model_config="ModelConfig.yml",
+        python_model="agent_server/agent.py",
+        name="agent",
+        code_paths=["agent_server"],
         input_example={"input": [{"role": "user", "content": "What is Databricks?"}]},
-        resources=AGENT.get_resources(),
-        extra_pip_requirements=["databricks-connect"]
     )
 
-# COMMAND ----------
-
-# DBTITLE 1,Test Loaded Model
-
-import pandas as pd
-
-# Load the model from MLflow
-loaded_model = mlflow.pyfunc.load_model(f"runs:/{model_info.run_id}/model")
-
-# Test with a sample question
-test_question = "What is Databricks?"
-print(f"Testing loaded model with question: {test_question}")
-print("="*80)
-
-model_input = pd.DataFrame({
-    "input": [[{"role": "user", "content": test_question}]]
-})
-response = loaded_model.predict(model_input)
-
-print(f"Answer: {response}")
-print("="*80)
-print("Loaded model test completed. Check MLflow trace in the experiment UI to verify tool execution.")
+print(f"MLflow run: {run.info.run_id}")
+print(f"Model URI: {model_info.model_uri}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Register model and set alias
-from mlflow import MlflowClient
-
-# Initialize MLflow client
-client_mlflow = MlflowClient()
-
+# DBTITLE 1,Register in Unity Catalog
 registered_model_name = f"{uc_catalog}.{schema}.{registered_model}"
-uc_registered_model_info = mlflow.register_model(model_info.model_uri,
-                                                 name=registered_model_name,
-                                                 env_pack="databricks_model_serving") # Optimized deployment: only for Serverless Env 3
 
-# Set an alias for new version of the registered model to retrieve it for model serving
-client_mlflow.set_registered_model_alias(f"{uc_catalog}.{schema}.{registered_model}", model_alias, uc_registered_model_info.version)
+uc_model_info = mlflow.register_model(
+    model_info.model_uri,
+    name=registered_model_name,
+)
+
+# Set alias for downstream evaluation and tracking
+client = mlflow.MlflowClient()
+client.set_registered_model_alias(
+    registered_model_name,
+    model_alias,
+    uc_model_info.version,
+)
+
+print(f"Registered: {registered_model_name}")
+print(f"Version: {uc_model_info.version}")
+print(f"Alias: {model_alias}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Final Summary
-print("="*80)
-print("Agent Development Complete")
-print("="*80)
-print(f"Model registered: {registered_model_name}")
-print(f"Model version: {uc_registered_model_info.version}")
-print(f"Model alias: {model_alias}")
-print(f"MLflow run ID: {model_info.run_id}")
-print("="*80)
-
-# COMMAND ----------
-
-# DBTITLE 1,Exit Notebook
-dbutils.notebook.exit("Agent created")
+# DBTITLE 1,Done
+dbutils.notebook.exit(f"Model registered: {registered_model_name} v{uc_model_info.version}")

@@ -1,15 +1,27 @@
 resources:
   apps:
-    {{template `project_name_alphanumeric_underscore` .}}_chatbot:
+    {{template `project_name_alphanumeric_underscore` .}}_agent:
       name: ${bundle.target}-${var.app_name}
-      description: "${bundle.name} Chatbot Databricks App - ${bundle.target} environment"
-      source_code_path: ../agent_deployment/chat_interface_deployment
+      description: "${bundle.name} Agent App - ${bundle.target} environment"
+      source_code_path: ../
       config:
-        command: ["python", "app.py"]
+        command: ["uv", "run", "start-app"]
         env:
-          - name: SERVING_ENDPOINT
-            value: ${var.agent_serving_endpoint}
-      # Optional: Add permissions if needed
-      # permissions:
-      #   - level: CAN_USE
-      #     group_name: users
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: API_PROXY
+            value: "http://localhost:8000/invocations"
+          - name: CHAT_APP_PORT
+            value: "3000"
+          - name: CHAT_PROXY_TIMEOUT_SECONDS
+            value: "300"
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+
+      resources:
+        - name: 'experiment'
+          experiment:
+            experiment_id: ${resources.experiments.{{template `project_name_alphanumeric_underscore` .}}_experiment.id}
+            permission: 'CAN_MANAGE'

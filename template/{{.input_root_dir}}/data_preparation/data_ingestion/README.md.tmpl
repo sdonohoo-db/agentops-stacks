@@ -1,3 +1,5 @@
 # Data Ingestion
 
-Raw data ingestion runs as the first task of the data preparation workflow. For setup and job definition, see [resources/README_agentops.md](../../resources/README_agentops.md) and [resources/data-preparation-resource.yml](../../resources/data-preparation-resource.yml) (task key `RawDataIngest`).
+First task in the data preparation pipeline. Loads raw data from a source URL into a Delta table in Unity Catalog.
+
+Configuration (catalog, schema, table name, source URL) is passed as notebook parameters from `resources/data-preparation-resource.yml`.

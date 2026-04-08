@@ -1,8 +1,7 @@
-# Remove unrelated CICD platform files
+# Conditional file layout based on init parameters
 {{ $root_dir := .input_root_dir}}
 
-# AgentOps template: skip ML-only components (not present in this template)
-# Flattened: project code is at bundle root (no project subdirectory)
+# Skip ML-only components not present in AgentOps template
 {{ skip (printf `%s/%s` $root_dir `training`) }}
 {{ skip (printf `%s/%s` $root_dir `tests/training`) }}
 {{ skip (printf `%s/%s` $root_dir `feature_engineering`) }}
@@ -16,9 +15,25 @@
 {{ skip (printf `%s/%s` $root_dir `resources/monitoring-resource.yml`) }}
 {{ skip (printf `%s/%s` $root_dir `resources/ml-artifacts-resource.yml`) }}
 
+# Skip removed model serving, Dash chatbot, and agent_deployment (replaced by agent-in-app)
+{{ skip (printf `%s/%s` $root_dir `agent_deployment`) }}
+{{ skip (printf `%s/%s` $root_dir `resources/app-deployment-resource.yml`) }}
+{{ skip (printf `%s/%s` $root_dir `tests/integration/model_serving_test.py`) }}
+
+# Skip data preparation pipeline (add back if your agent needs vector search / RAG)
+{{ skip (printf `%s/%s` $root_dir `data_preparation`) }}
+{{ skip (printf `%s/%s` $root_dir `resources/data-preparation-resource.yml`) }}
+
+# Skip notebook-based agent development pipeline (model registration is not needed for Apps)
+{{ skip (printf `%s/%s` $root_dir `agent_development`) }}
+{{ skip (printf `%s/%s` $root_dir `resources/agent-resource.yml`) }}
+{{ skip (printf `%s/%s` $root_dir `resources/agents-artifacts-resource.yml`) }}
+{{ skip (printf `%s/%s` $root_dir `agent_requirements.txt`) }}
+
 {{ if (eq .input_setup_cicd_and_project `Project_Only`) }}
     {{ skip (printf `%s/%s` $root_dir `.azure`) }}
     {{ skip (printf `%s/%s` $root_dir `.github`) }}
+    {{ skip (printf `%s/%s` $root_dir `.gitlab`) }}
     {{ skip (printf `%s/%s` $root_dir `docs`) }}
     {{ skip (printf `%s/%s` $root_dir `.gitignore`) }}
     {{ skip (printf `%s/%s` $root_dir `README.md`) }}
@@ -29,14 +44,18 @@
     {{ skip (printf `%s/%s` $root_dir `databricks.yml`) }}
     {{ skip (printf `%s/%s` $root_dir `requirements.txt`) }}
     {{ skip (printf `%s/%s` $root_dir `agent_development`) }}
-    {{ skip (printf `%s/%s` $root_dir `agent_deployment`) }}
+    {{ skip (printf `%s/%s` $root_dir `agent_server`) }}
     {{ skip (printf `%s/%s` $root_dir `data_preparation`) }}
     {{ skip (printf `%s/%s` $root_dir `resources`) }}
+    {{ skip (printf `%s/%s` $root_dir `scripts`) }}
     {{ skip (printf `%s/%s` $root_dir `tests`) }}
     {{ skip (printf `%s/%s` $root_dir `utils.py`) }}
     {{ skip (printf `%s/%s` $root_dir `pytest.ini`) }}
     {{ skip (printf `%s/%s` $root_dir `project_params.json`) }}
     {{ skip (printf `%s/%s` $root_dir `__init__.py`) }}
+    {{ skip (printf `%s/%s` $root_dir `app.yaml`) }}
+    {{ skip (printf `%s/%s` $root_dir `pyproject.toml`) }}
+    {{ skip (printf `%s/%s` $root_dir `.env.example`) }}
     {{ skip (printf `%s/%s/%s-*` $root_dir `.github/workflows` .input_project_name) }}
     {{ skip (printf `%s/%s/%s-*` $root_dir `.azure/devops-pipelines` .input_project_name) }}
 {{ end }}
@@ -56,7 +75,7 @@
     {{ skip (printf `%s/%s` $root_dir `_params_testing_only.txt`) }}
 {{ end }}
 
-# Remove template files
+# Remove template processing files
 {{ skip (printf `%s/%s` $root_dir `cicd`) }}
 {{ skip `update_layout` }}
 {{ skip `run_validations` }}

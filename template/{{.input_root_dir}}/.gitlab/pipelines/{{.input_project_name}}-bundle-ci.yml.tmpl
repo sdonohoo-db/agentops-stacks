@@ -1,28 +1,23 @@
-image: {{ .input_docker_image }}
+image: databricksfieldeng/mlopsstacks:latest
 
 unit-test:
   stage: test
   script:
     - python3 --version
     - pip --version
-    - java -version
     - pytest --junitxml=test-unit.xml
   rules:
-    - when: on_success # mandatory to ensure this job can be called by parent cicd on merge request
+    - when: on_success
 
 integration-test:
   stage: test
   environment: dev
-  #need: unit-test
   variables:
-    DATABRICKS_HOST: {{template `databricks_staging_workspace_host` .}}
     DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
     DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
   script:
     - cd .
     - databricks bundle validate -t test
     - databricks bundle deploy -t test
-    - databricks bundle run write_feature_table_job -t test
-    - databricks bundle run model_training_job -t test
   rules:
-    - when: on_success # mandatory to ensure this job can be called by parent cicd on merge request
+    - when: on_success

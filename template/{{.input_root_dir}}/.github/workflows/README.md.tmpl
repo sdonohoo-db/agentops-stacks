@@ -1,5 +1,28 @@
-# CI/CD Workflow Definitions
+# CI/CD — GitHub Actions
 
-This directory contains CI/CD workflow definitions using [GitHub Actions](https://docs.github.com/en/actions). The workflows cover testing and deployment of agent code and Databricks resource definitions (jobs, apps, MLflow artifacts).
+This directory contains GitHub Actions workflows for validating and deploying your agent project as a Databricks Asset Bundle.
 
-To set up CI/CD for a new project, see [Setting up CI/CD](../../README.md#setting-up-cicd) in the project README and the [AgentOps Setup Guide](../../docs/agentops-setup.md). Ensure the `WORKFLOW_TOKEN` secret has the required workflow permissions.
+## Workflows
+
+| File | Trigger | What it does |
+|------|---------|-------------|
+| `deploy-cicd.yml` | Manual | Generates project-specific workflow files. Run once per project. |
+| `{{ .input_project_name }}-bundle-cicd.yml` | PR to `main`, merge to `main`, merge to `release` | Validates bundle config (CI), deploys to staging (CD on main merge), deploys to prod (CD on release merge) |
+| `{{ .input_project_name }}-tests-ci.yml` | PR to `main` | Runs unit and integration tests |
+
+## Setup
+
+1. Create service principals for staging and prod workspaces
+2. Add required secrets to your GitHub repo (see [AgentOps Setup Guide](../../docs/agentops-setup.md))
+3. Enable "Read and write permissions" under Repo Settings > Actions > General > Workflow permissions
+4. Run `deploy-cicd.yml` manually to generate the project workflows
+
+## Pipeline flow
+
+```
+PR to main  →  validate bundle (staging + prod) + run tests
+Merge to main  →  deploy to staging
+Merge to release  →  deploy to prod
+```
+
+For details, see the [AgentOps Setup Guide](../../docs/agentops-setup.md).

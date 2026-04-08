@@ -1,102 +1,44 @@
-# The name of the bundle. run `databricks bundle schema` to see the full bundle settings schema.
 bundle:
   name: {{ .input_project_name }}
 
 variables:
-  # Unity Catalog (per-target; overridden in each target)
-  uc_catalog:
-    description: "Unity Catalog catalog name for this target (e.g. dev, staging, prod, test)."
-    default: dev
-  schema:
-    description: "Unity Catalog schema name for agent data, models, and resources."
-    default: "{{ .input_schema_name }}"
-
-  # Data tables
-  raw_data_table:
-    description: "Table in Unity Catalog to store raw data."
-    default: raw_documentation
-  preprocessed_data_table: 
-      description: "Table in Unity Catalog to store preprocessed data."
-      default: databricks_documentation
-  eval_table:
-    description: "Table in Unity Catalog to store evaluation data."
-    default: "databricks_documentation_eval"
-
-  # Vector search infrastructure
-  vector_search_endpoint:
-    description: "Vector Search endpoint to create."
-    default: ai_agent_endpoint
-  vector_search_index:
-    description: "Vector Search index to populate."
-    default: databricks_documentation_vs_index
-  
-  # MLflow model registration
-  experiment:
-    description: "Experiment to log run under."
-    default: /Users/${workspace.current_user.userName}/agent_function_chatbot
-  registered_model:
-    description: "Name of agent model to register."
-    default: agent_function_chatbot
-  model_alias:
-    description: "Model alias to use for trained model"
-    default: agent_latest
-
-  # Deployment configuration
-  agent_serving_endpoint:
-    description: "Name of the agent model serving endpoint. Set in your target after running model serving so the chat app and LaunchApp job can connect. If empty, agents.deploy() auto-generates a name and the chat app will not start until you set this and redeploy."
-    default: ""
-  mlflow_experiment_path:
-    description: "Non-Git MLflow experiment path for agent tracing. If empty, auto-generated."
-    default: ""
   app_name:
-    description: "Databricks App name segment (lowercase, numbers, dashes only). Full name: {target}-{app_name}."
-    default: "{{ .input_project_name | replace('_', '-') }}-chatbot"
+    description: "Databricks App name (lowercase, numbers, dashes only)."
+    default: "{{- (regexp `_`).ReplaceAllString .input_project_name `-` -}}"
+
+resources:
+  experiments:
+    {{template `project_name_alphanumeric_underscore` .}}_experiment:
+      name: /Users/${workspace.current_user.userName}/{{ .input_project_name }}
 
 include:
-  # Resources folder contains Agent artifact resources for the Agent project that defines the agent
-  # and workflows resources for data preparation -> agent creation & evaluation -> deployment
-  - ./resources/data-preparation-resource.yml
-  - ./resources/agents-artifacts-resource.yml
-  - ./resources/agent-resource.yml
-  - ./resources/app-resource.yml  # Databricks App deployed as bundle resource
+  - ./resources/app-resource.yml
 
-# Sync app files to workspace for app deployment
+# Sync agent server and app files to workspace
 sync:
   include:
-    - agent_deployment/chat_interface_deployment/app.py
-    - agent_deployment/chat_interface_deployment/DatabricksChatbot.py
-    - agent_deployment/chat_interface_deployment/app.yaml
+    - agent_server/**
+    - scripts/**
+    - app.yaml
+    - pyproject.toml
+    - .env.example
 
-# Deployment Target specific values for workspace
 targets:
   dev:
     default: true
+    mode: development
     workspace:
-      # TODO: add dev workspace URL
-      host:
-    variables: 
-      uc_catalog: dev
-      schema: {{ .input_schema_name }}
+      host: # TODO: set your dev workspace URL
 
   staging:
     workspace:
-      host: {{template `databricks_staging_workspace_host` .}}
-
-    variables: 
-      uc_catalog: {{ .input_staging_catalog_name }}
-      schema: {{ .input_schema_name }}
+      host: # TODO: set your staging workspace URL
 
   prod:
+    mode: production
     workspace:
-      host: {{template `databricks_prod_workspace_host` .}}
-    variables: 
-      uc_catalog: {{ .input_prod_catalog_name }}
-      schema: {{ .input_schema_name }}
+      host: # TODO: set your prod workspace URL
 
-  test: 
+  test:
     workspace:
-      host: {{template `databricks_staging_workspace_host` .}}
-    
-    variables: 
-      uc_catalog: {{ .input_test_catalog_name }}
-      schema: {{ .input_schema_name }}
+      host: # TODO: set your test workspace URL (often same as staging)

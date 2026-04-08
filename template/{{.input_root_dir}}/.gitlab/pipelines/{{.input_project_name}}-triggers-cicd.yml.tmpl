@@ -1,13 +1,7 @@
-# This pipeline is triggered upon making a PR against the {{ .input_default_branch }} branch.
-# Unit tests are defined under tests/
-# The integration test deploys and runs the agent_development_job defined in resources/agent-resource.yml
-# This integration test is run in the staging workspace, as defined under databricks.yml
-
-# run on merge requests, tags, and the default branch
 stages:
   - triggers
 
-image: {{ .input_docker_image }}
+image: databricksfieldeng/mlopsstacks:latest
 
 trigger_ci:
   stage: triggers
@@ -33,7 +27,7 @@ trigger_cd_production:
   stage: triggers
   trigger:
     include:
-      - local: .gitlab/pipelines/{{.input_project_name}}-bundle-cd-prod.yml 
+      - local: .gitlab/pipelines/{{.input_project_name}}-bundle-cd-prod.yml
     strategy: depend
   rules:
     - if: $CI_COMMIT_BRANCH == 'release'

@@ -1,10 +1,9 @@
-image: {{ .input_docker_image }}
+image: databricksfieldeng/mlopsstacks:latest
 
 deploy-stage:
   stage: deploy
   environment: stage
   variables:
-    DATABRICKS_HOST: {{template `databricks_staging_workspace_host` .}}
     DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
     DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
   script:
@@ -12,4 +11,4 @@ deploy-stage:
     - databricks bundle validate -t staging
     - databricks bundle deploy -t staging
   rules:
-    - when: on_success # mandatory to ensure this job can be called by parent on merge request
+    - when: on_success

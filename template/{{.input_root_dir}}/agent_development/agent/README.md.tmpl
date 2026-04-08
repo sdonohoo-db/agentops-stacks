@@ -1,13 +1,5 @@
-# Agent Development
+# Agent Creation
 
-A separate `agent_requirements.txt` is used for the agent to avoid package conflicts and keep the agent code portable.
+The `Agent.py` notebook creates the agent, logs it to MLflow, and registers the model in Unity Catalog. The agent code itself lives in `agent_server/` — this notebook handles the MLflow model lifecycle, not the agent logic.
 
-## Logging the Agent
-
-To log the Agent in MLflow, write the agent pipeline using `%%writefile app.py` so that an `app.py` file is created and logged with the Agent artifacts.
-
-## Tool calling
-
-The agent uses [Unity Catalog functions](https://docs.databricks.com/aws/en/generative-ai/agent-framework/create-custom-tool) for tools. The notebook creates UC functions (e.g. `ask_ai`, `summarize`, `translate`) from inline SQL templates and registers them in the catalog/schema. Vector search is configured via the agent's model config (`vector_search_config`), not as a separate UC function.
-
-Tools are loaded via [UCFunctionToolkit](https://python.langchain.com/api_reference/community/tools/langchain_community.tools.databricks.tool.UCFunctionToolkit.html). You can comment out any function names in the tool list that you do not want the agent to use.
+After running `uv run setup` to install your chosen agent framework, update this notebook to match your agent's configuration (tools, model config, etc.).

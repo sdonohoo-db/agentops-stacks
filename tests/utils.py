@@ -13,29 +13,16 @@ AZURE_DEFAULT_PARAMS = {
     "input_project_name": "my-agentops-project",
     "input_cloud": "azure",
     "input_cicd_platform": "github_actions",
-    "input_databricks_staging_workspace_host": "https://adb-xxxx.xx.azuredatabricks.net",
-    "input_databricks_prod_workspace_host": "https://adb-xxxx.xx.azuredatabricks.net",
-    "input_default_branch": "main",
-    "input_release_branch": "release",
-    "input_read_user_group": "users",
-    "input_schema_name": "my_agentops_project",
-    "input_staging_catalog_name": "staging",
-    "input_prod_catalog_name": "prod",
-    "input_test_catalog_name": "test",
 }
 
 AWS_DEFAULT_PARAMS = {
     **AZURE_DEFAULT_PARAMS,
     "input_cloud": "aws",
-    "input_databricks_staging_workspace_host": "https://your-staging-workspace.cloud.databricks.com",
-    "input_databricks_prod_workspace_host": "https://your-prod-workspace.cloud.databricks.com",
 }
 
 GCP_DEFAULT_PARAMS = {
     **AZURE_DEFAULT_PARAMS,
     "input_cloud": "gcp",
-    "input_databricks_staging_workspace_host": "https://your-staging-workspace.gcp.databricks.com",
-    "input_databricks_prod_workspace_host": "https://your-prod-workspace.gcp.databricks.com",
 }
 
 
@@ -87,26 +74,9 @@ def generated_project_dir(
         "input_cloud": cloud,
     }
     if setup_cicd_and_project != "Project_Only":
-        params.update(
-            {
-                "input_cicd_platform": cicd_platform,
-                "input_databricks_staging_workspace_host": "https://adb-3214.67.azuredatabricks.net",
-                "input_databricks_prod_workspace_host": "https://adb-345.89.azuredatabricks.net",
-                "input_default_branch": "main",
-                "input_release_branch": "release",
-            }
-        )
+        params["input_cicd_platform"] = cicd_platform
     if setup_cicd_and_project != "CICD_Only":
-        params.update(
-            {
-                "input_project_name": "my-agentops-project",
-                "input_read_user_group": "users",
-                "input_schema_name": "my_agentops_project",
-                "input_staging_catalog_name": "staging",
-                "input_prod_catalog_name": "prod",
-                "input_test_catalog_name": "test",
-            }
-        )
+        params["input_project_name"] = "my-agentops-project"
     generate(tmpdir, databricks_cli, params)
     return tmpdir
 
@@ -121,8 +91,6 @@ def markdown_checker_configs(tmpdir):
     markdown_checker_config_dict = {
         "ignorePatterns": [
             {"pattern": "http://127.0.0.1:5000"},
-            {"pattern": "https://adb-3214.67.azuredatabricks.net*"},
-            {"pattern": "https://adb-345.89.azuredatabricks.net*"},
         ],
         "httpHeaders": [
             {

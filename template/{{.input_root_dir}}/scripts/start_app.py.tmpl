@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""
+Start the agent server. This is the entry point for 'uv run start-app'.
+
+On first run in a Databricks App, this also clones the e2e-chatbot-app-next
+frontend from databricks/app-templates if it's not already present.
+"""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def clone_frontend_if_needed():
+    """Clone the e2e-chatbot-app-next frontend if not present."""
+    frontend_dir = Path("e2e-chatbot-app-next")
+    if frontend_dir.exists():
+        return True
+
+    print("Cloning e2e-chatbot-app-next frontend...")
+    for url in [
+        "https://github.com/databricks/app-templates.git",
+        "git@github.com:databricks/app-templates.git",
+    ]:
+        result = subprocess.run(
+            ["git", "clone", "--filter=blob:none", "--sparse", url, "temp-app-templates"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            break
+    else:
+        print("WARNING: Could not clone frontend. Agent server will start without chat UI.")
+        return False
+
+    subprocess.run(
+        ["git", "-C", "temp-app-templates", "sparse-checkout", "set", "e2e-chatbot-app-next"],
+        check=True, capture_output=True,
+    )
+
+    if (Path("temp-app-templates") / "e2e-chatbot-app-next").exists():
+        (Path("temp-app-templates") / "e2e-chatbot-app-next").rename(frontend_dir)
+
+    subprocess.run(["rm", "-rf", "temp-app-templates"], capture_output=True)
+    return frontend_dir.exists()
+
+
+def start_backend():
+    """Start the agent server."""
+    return subprocess.Popen(
+        [sys.executable, "-m", "agent_server.start_server"],
+        env={**os.environ, "PYTHONPATH": str(Path.cwd())},
+    )
+
+
+def start_frontend():
+    """Start the chat frontend if available."""
+    frontend_dir = Path("e2e-chatbot-app-next")
+    if not frontend_dir.exists():
+        return None
+
+    subprocess.run(["npm", "install"], cwd=frontend_dir, capture_output=True)
+    subprocess.run(["npm", "run", "build"], cwd=frontend_dir, capture_output=True)
+    return subprocess.Popen(["npm", "run", "start"], cwd=frontend_dir)
+
+
+def main():
+    clone_frontend_if_needed()
+
+    backend = start_backend()
+    frontend = start_frontend()
+
+    try:
+        backend.wait()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        backend.terminate()
+        if frontend:
+            frontend.terminate()
+
+
+if __name__ == "__main__":
+    main()
