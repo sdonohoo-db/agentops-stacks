@@ -10,5 +10,13 @@ deploy-stage:
     - cd .
     - databricks bundle validate -t staging
     - databricks bundle deploy -t staging
+    # Run all app resources to deploy source and start them
+    - |
+      APP_KEYS=$(databricks bundle summary -t staging -o json \
+        | python3 -c "import sys,json; apps=json.load(sys.stdin).get('resources',{}).get('apps',{}); [print(k) for k in apps]" 2>/dev/null) || true
+      for app_key in $APP_KEYS; do
+        echo "Starting app: $app_key"
+        databricks bundle run "$app_key" -t staging
+      done
   rules:
     - when: on_success
