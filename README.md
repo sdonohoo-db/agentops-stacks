@@ -21,8 +21,10 @@ A Databricks Asset Bundle (DAB) template for AI agent and MCP server projects. G
 ### 1. Initialize the project
 
 ```bash
-databricks bundle init https://github.com/sdonohoo-db/agentops-stacks
+databricks bundle init https://github.com/databricks-solutions/agentops-stacks --branch agentops-stacks-rebase
 ```
+
+> While the component-based template lives on the `agentops-stacks-rebase` branch (PR pending), pass `--branch agentops-stacks-rebase` to select it. Drop the flag once the branch merges to `main`.
 
 You'll be asked about project name, cloud provider, CI/CD platform, and setup scope.
 
