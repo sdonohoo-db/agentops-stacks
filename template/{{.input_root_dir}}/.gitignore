@@ -13,5 +13,3 @@ venv
 *.egg-info/
 build
 dist
-# Component manifests (used by setup script, not needed after setup)
-components/

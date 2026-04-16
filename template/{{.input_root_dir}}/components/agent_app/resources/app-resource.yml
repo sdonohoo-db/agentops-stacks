@@ -1,0 +1,24 @@
+# Agent App resource definition
+# INSTANCE_NAME is replaced by the setup script with the project's resource key.
+
+resources:
+  apps:
+    INSTANCE_NAME_agent:
+      name: ${bundle.target}-INSTANCE_DASH_NAME
+      description: "${bundle.name} agent - ${bundle.target}"
+      source_code_path: ../
+      config:
+        command: ["uv", "run", "start-server"]
+        env:
+          - name: MLFLOW_TRACKING_URI
+            value: "databricks"
+          - name: MLFLOW_REGISTRY_URI
+            value: "databricks-uc"
+          - name: MLFLOW_EXPERIMENT_ID
+            value_from: "experiment"
+
+      resources:
+        - name: "experiment"
+          experiment:
+            experiment_id: ${resources.experiments.INSTANCE_NAME_experiment.id}
+            permission: "CAN_MANAGE"
