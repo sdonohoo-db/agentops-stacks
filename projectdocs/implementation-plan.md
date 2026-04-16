@@ -1,9 +1,10 @@
 # AgentOps Stacks — Implementation Plan
 
-**Status:** Replanning
-**Last Updated:** 2026-04-14
+**Status:** Active
+**Last Updated:** 2026-04-15
 
-Design principles, architecture, and standing requirements are in [CLAUDE.md](CLAUDE.md).
+Design principles, architecture, and standing requirements are in
+[design-and-architecture.md](design-and-architecture.md).
 
 ## Tooling Architecture
 
@@ -55,32 +56,58 @@ fit together.
                            └─────────────────────────────────────┘
 ```
 
-The fast track validates paths A and C with two components (agent_app + vector_search).
-Path B (solution templates) follows at Step 5 by freezing the assembled result.
+## Progress Summary
+
+### Completed
+
+| Step | What | Status |
+|------|------|--------|
+| Step 2 | Empty DAB scaffold | Done |
+| Step 3 | CLI stitching validation | Done |
+| Step 4a | `agent_app` component | Done |
+| Step 4b | `mcp_server` component | Done |
+| — | Chat UI removal | Done (removed, will revisit as component) |
+| — | Repo rebase | Done (PR databricks-solutions/agentops-stacks#4) |
+
+### In Progress
+
+| Step | What | Owner | Status |
+|------|------|-------|--------|
+| Step 0 | Per-component eval + compliance research | Ongoing | Scoped to agent_app, mcp_server done informally; formal research pending |
+| Step 1 | Eval gating and HITL design | Alex (colleague) | Eval framework coming from redux lineage |
+
+### Not Started
+
+| Step | What | Blocked by |
+|------|------|------------|
+| Step 4c | `vector_search` component | — |
+| Step 4d | `agent_model_serving` component | — |
+| Step 4e | Eval integration into agent components | Step 1 (eval framework) |
+| Step 5 | RAG solution template | Steps 4c + 4e |
+| Step 6+ | Additional components and templates | Step 5 milestone |
 
 ## Structure
 
-The plan is structured in two tracks: a **fast track** to reach a minimal working state
-we can validate with stakeholders, and a **depth track** of research and design that
-runs in parallel and feeds into later steps.
+The plan has two tracks: a **fast track** to reach a minimal working state for
+stakeholder validation, and a **depth track** of research and design that runs
+in parallel and feeds into later steps.
 
-The fast track goal: demonstrate two things as quickly as possible:
-1. **RAG solution pattern** — a complete, deployable RAG solution with eval
-2. **Composability** — building that same RAG from an empty DAB by adding components
-   (agent_app + vector_search)
-
-Both demos use the same two components (agent, vector store), which means we get
-two proof points from a minimal build. The RAG template is a pre-assembled version
-of what the component assembly path produces.
+The fast track goal: demonstrate two things:
+1. **Composability** — building a solution from an empty DAB by adding components
+2. **RAG solution pattern** — a complete, deployable RAG with eval gates
 
 ```
 FAST TRACK (minimal working state)         DEPTH TRACK (runs in parallel)
 ─────────────────────────────────          ─────────────────────────────────
-Step 2: Empty DAB scaffold            ←→   Step 0: Eval + compliance research
-Step 3: CLI stitching validation      ←→     (scoped to agent + vector_search
-Step 4: agent_app + vector_search     ←→      first, broader catalog later)
-         components with eval          ←→   Step 1: HITL and gating design
-            │                                Step 1: Eval Ops lifecycle design
+Step 2: Empty DAB scaffold        ✓  ←→   Step 0: Eval + compliance research
+Step 3: CLI stitching validation  ✓  ←→     (scoped to agent + vector_search
+Step 4: Base components                ←→      first, broader catalog later)
+  ✓ agent_app                          ←→   Step 1: Eval gating + HITL design
+  ✓ mcp_server                         ←→     (Alex — eval framework from redux)
+  · vector_search
+  · agent_model_serving
+  · eval integration (after Step 1)
+            │
             ▼
    *** Reviewable milestone ***
    Demo A: composability (primary)
@@ -125,9 +152,9 @@ creates. These are not separate activities — they inform the same design decis
 - Can the component be disabled or scoped to non-sensitive data without breaking the
   rest of the solution?
 
-The MLflow Prompt Registry analysis (see Design Priority #5 in CLAUDE.md) is the model
-for this research. The answer is rarely "don't use it" — it's usually "here's how to
-use it safely, and here's what to turn off in regulated environments."
+The MLflow Prompt Registry analysis (see Design Priority #5 in design-and-architecture.md)
+is the model for this research. The answer is rarely "don't use it" — it's usually
+"here's how to use it safely, and here's what to turn off in regulated environments."
 
 **Known evaluation mechanisms by component type:**
 
@@ -137,13 +164,10 @@ use it safely, and here's what to turn off in regulated environments."
 | RAG retrieval quality | Retrieval-specific scorers (relevance, chunk_relevance) | Q&A dataset with expected source docs | SDK available |
 | Knowledge Assistant (Agent Bricks) | Guidelines API | Declarative behavior rules | Investigate SDK |
 | Genie Spaces | Benchmarks API | Golden question/SQL/answer dataset | Investigate SDK |
-| MCP servers | TBD — tool call correctness, schema compliance? | TBD | Research needed |
+| MCP servers | Tool call correctness, schema compliance | Expected tool call/response pairs | Research needed |
 | Data prep / ingestion | Data quality checks, schema validation | Expected schema, row count bounds | Standard tooling |
 | Guardrails / safety | Safety scorers, adversarial test sets | Red-team prompts, PII test data | SDK available |
 | Prompt Registry | N/A (authoring tool, not runtime) | N/A | Beta — not HIPAA-listed, non-PHI only |
-
-This research drives every other step. Do not design a component's eval or recommend
-its inclusion without understanding both the evaluation mechanism and the data flow.
 
 **For the fast track:** scope this research to `agent_app` and `vector_search` first —
 these are the two components needed for the reviewable milestone (RAG demo +
@@ -181,123 +205,161 @@ Review the current GitHub Actions / Azure DevOps / GitLab templates from
 agentops-stacks. Do they support adding eval gate steps, or do they need structural
 rework?
 
-## Step 2: Empty DAB Scaffold
+**Status:** Alex is bringing the eval framework from the redux lineage. The eval
+gating logic (EvaluationThresholds, presets, quality gates), online evaluation
+(OnlineEvaluator, trace sampling), and HITL feedback loop (trace annotation, negative
+trace export) from redux are the starting point. These need to be refactored into
+components that fit the manifest-driven architecture.
 
-**This is the first change to the agentops-stacks repo.** The base template generated
-by `databricks bundle init` should be truly empty — no agent code, no agent-specific
-resources. Currently, the template bakes in `agent_server/`, `agent_deployment/`,
-`agent_development/`, and `app.yaml` regardless of what the user wants. These should
-be moved out of the base template and into setup — added only when the user picks an
-agent template. A user who wants only an MCP server or a vector index should not have
-to delete agent scaffolding.
+## Step 2: Empty DAB Scaffold — DONE
 
-Also: the template still includes leftover MLOps Stacks documentation images
-(`docs/images/mlops-stack-deploy.png`, `docs/images/mlops-stack-summary.png`) that
-need to be removed.
+The base template generated by `databricks bundle init` produces a clean, empty DAB
+with no agent code or agent-specific resources baked in.
 
-**Scaffold includes:**
+**What shipped:**
 
-- `databricks.yml` with three-environment target structure (dev/staging/prod). Users
-  without a staging or QA workspace can remove it manually after init.
+- `databricks.yml` with three-environment target structure (dev/staging/prod) and
+  `bundle: engine: direct`.
 - `include` patterns in `databricks.yml` that auto-discover resource files in
-  `resources/`, so components can be added by dropping files without editing root config.
-- An MLflow experiment resource (every project needs at least one; users can add more).
-- `resources/` directory for modular component resource definitions.
-- CI/CD workflow stubs (user picks provider during init).
-- `pyproject.toml`, `.env.example`, `.gitignore`.
+  `resources/`, so components are added by dropping files without editing root config.
+- An MLflow experiment resource (every project needs at least one).
+- CI/CD workflow templates for GitHub Actions, Azure DevOps, and GitLab.
+- `pyproject.toml`, `.env.example`, `.gitignore`, `pytest.ini`.
+- Setup script with interactive menu for selecting project type.
 
-**Validation criteria:**
+**Validated:**
 
-- `databricks bundle validate` passes with zero components.
-- `databricks bundle deploy --target dev` with the direct engine creates the expected
-  workspace state (experiment, empty resource directory).
+- `databricks bundle validate` passes with zero components (empty DAB).
 - A component resource file dropped into `resources/` is picked up by `include`
   without editing `databricks.yml`.
 
-**Open question: component-to-component integration.** Adding standalone components
-via `include` is straightforward — drop a resource file, it gets discovered. The harder
-problem is when components need to reference each other after being added (e.g., an
-agent component referencing a vector search index, an eval job referencing an agent
-endpoint). How those cross-references are wired is an open design question for Step 3.
+## Step 3: Validate Component Stitching via CLI — DONE
 
-The existing setup script (which populates the bundle after init) stays as-is for now
-and will be updated as components are integrated.
+The setup script (`scripts/setup.py`) implements CLI-driven component assembly. The
+manifest-driven approach works:
 
-This is the foundation everything else gets added to. If the empty scaffold doesn't
-work, nothing built on top of it will.
+**What shipped:**
 
-## Step 3: Validate Component Stitching via CLI
+- Component manifest format (`component.md` with YAML frontmatter) defining copies,
+  modifications, dependencies, external sources, and platform resources.
+- `install_components()` reads manifests, copies files, applies modifications
+  (append_list, add_dependencies, add_entry_points, set_command, merge_env),
+  injects hatch entry points, and replaces instance name placeholders.
+- Components are self-contained: adding one doesn't require editing another.
+- `components/` directory is deleted after installation (one-time setup operation).
 
-Modularity and composability assume we have a reliable way to stitch components into
-an existing DAB correctly. The three interfaces have different levels of confidence:
+**Key findings from implementation:**
 
-| Interface | Confidence | Why |
-|---|---|---|
-| Coding assistant + skills | High | Reads the manifest, understands the project, can make judgment calls about file placement and config merging |
-| Graphical UI / drag-and-drop | High | Controlled environment, can enforce valid combinations and generate correct configs programmatically |
-| CLI | Uncertain | Must handle file copying, YAML merging, variable injection, and `sync.include` updates without an intelligent agent in the loop |
+1. **YAML merging via `include` works well.** Component resource files go in
+   `resources/` and are auto-discovered. No root `databricks.yml` edits needed
+   for resource declarations.
+2. **`sync.include` growth is manageable.** Each component adds its source
+   directories via the `append_list` modification action. No DAB limitations
+   encountered.
+3. **Ordering is safe for independent components.** agent_app and mcp_server
+   install independently without conflicts. Component-to-component dependencies
+   (e.g., agent referencing a vector search index) will need cross-reference
+   wiring — not yet tested.
+4. **Not idempotent.** Components can't be re-added or removed after installation
+   since `components/` is deleted. This is acceptable for the current one-time
+   setup model. A future `agentops add <component>` CLI could support incremental
+   addition, but that's a separate effort.
+5. **`sync.exclude` patterns must match files.** DAB warns on patterns that don't
+   match anything. Don't add exclude patterns for directories that are cleaned up
+   during setup.
 
-The CLI is the riskiest interface and must be validated early — before investing in
-building many components that assume CLI-driven assembly works.
+## Step 4: Base Components — IN PROGRESS
 
-Test with the empty scaffold from Step 2 and the existing prototype components
-(agent_app_base, vector_index) in `components/`:
+### agent_app — DONE
 
-1. **What does "add a component" look like from the CLI?** Is it a single command
-   (`agentops add vector_search`)? A script that reads the manifest and copies
-   artifacts? A guided questionnaire? What is the minimal viable UX?
-2. **YAML merging**: Adding a component means merging its `databricks.yml` snippet
-   into the project. DAB supports `include` directives — can component resource files
-   simply be dropped into `resources/` and auto-included? Or do they require edits to
-   the root `databricks.yml`? Test both approaches.
-3. **Variable conflicts**: Two components may introduce variables with the same name
-   or conflicting defaults. How does the CLI detect and resolve this?
-4. **`sync.include` growth**: Each component may add source directories that need
-   syncing. Does this scale cleanly, or does it hit DAB limitations?
-5. **Ordering and idempotency**: Can components be added in any order? Can a component
-   be added twice without breaking the project? Can a component be removed?
-6. **Validation after stitching**: After adding a component via CLI, does
-   `databricks bundle validate` pass? Does `deploy` succeed? Test the full round trip.
+MLflow AgentServer-based agent deployed as a Databricks App.
 
-If CLI-driven stitching proves too brittle or limited, that's a finding — it means
-the component model may need to be CLI-optional (coding assistant and UI only) with
-the CLI limited to whole-template operations. Better to learn this now than after
-building 15 components.
+**What shipped:**
 
-## Step 4: Base Components
+- Component manifest with copies, modifications (sync.include, add_dependencies,
+  add_entry_points), and platform resources.
+- `agent_server/agent.py` with standalone function pattern — `handle_stream()` and
+  `handle_invoke()` are plain async functions, registered with `invoke()`/`stream()`
+  decorators separately. This makes them directly callable for testing without going
+  through the AgentServer middleware.
+- `agent_server/start_server.py` — FastAPI dev server with `/test` route that calls
+  `handle_invoke()` directly, demonstrating how to add custom routes and test agent
+  logic.
+- `app.yaml` with `uv run start-server` command.
+- DAB app resource definition in `resources/app-resource.yml`.
 
-Build, test, and document the first set of components on the empty scaffold.
-Use these to validate the stitching approach identified in Step 3:
+**Key learnings:**
 
-| Component | Description | Eval Mechanism (from Step 0) |
-|---|---|---|
-| `agent_app` | Databricks App-hosted agent with MLflow experiment | `mlflow.evaluate()` + LLM scorers |
-| `agent_model_serving` | Model Serving Endpoint-hosted agent with AI Gateway | `mlflow.evaluate()` + LLM scorers |
-| `vector_search` | Vector Search endpoint and index with Delta Sync | Retrieval scorers, index sync validation |
+- MLflow's `@invoke()` and `@stream()` decorators wrap functions and make them not
+  directly callable through the decorator. The standalone function pattern
+  (define function, then `invoke()(handle_invoke)`) is required for testability.
+- `create_text_delta(delta, item_id)` requires an `item_id` parameter — the API
+  signature is not just `create_text_delta(delta)`.
+- The platform injects `/health` automatically on deployed Databricks Apps. The
+  `/test` route is app-defined and serves as a pedagogical example for users.
 
-Agent hosting is a component choice, not a global setting. These are the first two
-of three agent hosting patterns:
+**Not yet included:** Evaluation. The agent_app ships without eval gates pending
+the eval framework from Step 1.
+
+### mcp_server — DONE
+
+FastAPI + FastMCP combined server deployed as a Databricks App.
+
+**What shipped:**
+
+- Component manifest with copies, modifications (sync.include, add_dependencies,
+  add_entry_points), and platform resources.
+- `server/app.py` — FastAPI app that mounts the FastMCP SSE transport and exposes
+  `/test` route calling a registered tool directly.
+- `server/tools.py` — standalone tool functions registered programmatically via
+  `mcp_server.tool(func)`. Demonstrates how to add tools to the MCP server.
+- `server/utils.py` — Databricks workspace client with OBO token forwarding.
+- `server/main.py` — Uvicorn entry point.
+- `app.yaml` with `uv run custom-mcp-server` command.
+- DAB app resource definition in `resources/app-resource.yml`.
+
+**Key learnings:**
+
+- FastMCP supports both `@mcp_server.tool` decorator and `mcp_server.tool(func)`
+  programmatic registration. The programmatic approach keeps tool logic in a
+  separate file, mirroring the standalone function pattern from agent_app.
+- MCP tools that interact with Databricks APIs need OBO token forwarding from the
+  app platform headers.
+
+**Not yet included:** Evaluation. MCP server eval (tool call correctness, schema
+compliance) needs research — no established eval mechanism exists yet.
+
+### vector_search — NOT STARTED
+
+Vector Search endpoint and index with Delta Sync. Required for the RAG demo.
+
+This is the next component to build. It will validate component-to-component
+cross-references (agent referencing a vector search index) — the key stitching
+question that hasn't been tested yet.
+
+Vector Search index is not a first-class DAB resource type, so it will need
+notebook-based creation with documentation about why and a note to migrate when
+DAB support lands.
+
+### agent_model_serving — NOT STARTED
+
+Model Serving Endpoint-hosted agent with AI Gateway. Second agent hosting pattern.
+
+Agent hosting is a component choice, not a global setting:
 
 | Pattern | Component | When to use | Status |
 |---|---|---|---|
-| Databricks App | `agent_app` | Chat UI, interactive use, rapid iteration | Fast track |
-| Model Serving Endpoint | `agent_model_serving` | API-first, high throughput, AI Gateway guardrails | Fast track |
+| Databricks App | `agent_app` | Chat UI, interactive use, rapid iteration | Done |
+| Model Serving Endpoint | `agent_model_serving` | API-first, high throughput, AI Gateway guardrails | Not started |
 | External (non-Databricks) | `agent_external` | Agent hosted elsewhere, governed via UC connection + registry | Future (pending first-class UC support) |
 
 All three produce agents that emit standard MLflow/OTel traces, so eval and
 monitoring components work the same regardless of hosting pattern.
 
-For each component:
-1. Build the DAB artifacts and component manifest
-2. Add to the empty scaffold, validate, deploy
-3. Implement the eval mechanism identified in Step 0
-4. Verify that adding one component doesn't break another already present
-5. Verify the closed-loop: eval results → actionable feedback in dev
-
 ## Reviewable Milestone: Minimal Working Demo
 
-After Step 4, we can demo both composability and a complete solution pattern using
-the same two components:
+After Step 4 is complete (vector_search + eval integration), we can demo both
+composability and a complete solution pattern using the same components:
 
 **Demo A — Composability (primary):**
 Empty DAB scaffold → add `agent_app` component → add `vector_search` component
@@ -315,8 +377,6 @@ just want RAG without assembling it themselves.
 - Is the eval integration convincing? Does it feel built-in, not bolted on?
 - Does CLI stitching work, or do people want a different interface?
 - Is the approach sound before investing in the full component catalog?
-
-Delivery targets (ML-SME presentation, customer workshops) are in `project-notes.md`.
 
 ## Step 5: Package RAG Solution Template
 
@@ -341,36 +401,73 @@ RAG template includes:
 Expand based on priorities from Tim sync. Candidates:
 - Genie agent component + Benchmarks evaluation
 - Knowledge Assistant component + Guidelines evaluation
-- MCP server component
+- Chat UI component (revisit as a proper component with manifest-driven installation)
 - Lakebase resource component
 - Document Intelligence solution template
 - Process Automation solution template
 - AI coding assistant skills / MCP server (from redux)
 - Online monitoring / production eval component (from redux)
+- Cost tracking component (MLflow token logging, from redux)
 
-## What to Keep from Each
+## What Was Kept from Each Lineage
 
-### From agentops-stacks
-- DAB template structure and cookiecutter-based project generation
-- 5-question init questionnaire
+### From agentops-stacks (this repo)
+- DAB template structure and project generation via `databricks bundle init`
+- 5-question init questionnaire (cookiecutter)
 - CI/CD workflow templates (GitHub Actions, Azure DevOps, GitLab)
 - Direct engine deployment pattern
-- Agent-agnostic app resource definition
-- Setup script architecture (template menu, sparse checkout from app-templates)
+- Setup script architecture (template menu, component installation)
+- Three-environment target structure (dev/staging/prod)
 
-### From agentops-stacks-redux
+### From agentops-stacks-redux (merged in)
+- Component manifest concept (extended into YAML frontmatter format)
+- MCP server component pattern
+- Reference agent implementation patterns
+- Workspace client with OBO token forwarding
+
+### Built New
+- Component manifest format (`component.md` with YAML frontmatter) and
+  `install_components()` to parse and apply it
+- Standalone function pattern for agent and MCP tool testability
+- `/test` routes as pedagogical examples in both component types
+- `sync.include` and dependency injection via manifest modification actions
+- Automatic `components/` cleanup after installation
+
+### Still to Integrate from Redux
 - Evaluation framework (EvaluationThresholds, presets, quality gate logic)
 - Online evaluation / production monitoring (OnlineEvaluator, trace sampling)
 - Human-in-the-loop feedback loop (trace annotation, negative trace export)
-- MCP server and AI coding platform integration
-- Scaffold CLI for adding agents
-- Reference agent implementation patterns (AgentBase, router, tool registry)
-- Comprehensive documentation and troubleshooting structure
-- Cost tracking
+- Cost tracking (MLflow token logging)
 
-### Build New
-- Component manifest format and tooling to parse it
-- Empty DAB scaffold validated with direct engine
-- Per-component evaluation wiring (connecting eval mechanisms to components)
-- Closed-loop feedback infrastructure (production → dev pipeline)
-- Model serving endpoint component (redux has it as deployment, needs componentization)
+## Open Questions
+
+1. **Component-to-component cross-references.** How does an agent component reference
+   a vector search index added by another component? The manifest `modifies` system
+   handles simple additions (sync.include, dependencies), but wiring runtime references
+   between components hasn't been tested. The vector_search component will be the
+   first test of this.
+
+2. **Eval component packaging.** Should evaluation be a standalone component that
+   attaches to any agent, or embedded in each agent component's manifest? The design
+   says "every component that can be evaluated ships with evaluation built in" — but
+   the eval framework itself needs to be shared. Likely answer: a shared eval library
+   component that agent components depend on, with per-component eval configuration
+   in each agent's manifest.
+
+3. **Chat UI as component.** The chat UI (from `databricks/app-templates`
+   `e2e-chatbot-app-next`) was removed because it introduced a nested bundle
+   (`databricks.yml` inside the cloned directory) and added complexity without
+   sufficient value at this stage. Revisiting it as a proper component with
+   `remove_after_fetch` in the manifest's `external_sources` is the right path,
+   but not until the core component set is stable.
+
+4. **Incremental component addition.** The current model is one-time setup: choose
+   components, install, done. A future `agentops add <component>` flow for adding
+   components to an existing project would improve the developer experience, but
+   requires solving idempotency and dependency resolution. Not blocking for the
+   milestone.
+
+5. **Quick-start examples (Path A).** The setup script's `external_sources` mechanism
+   already supports importing from `databricks/app-templates`. The menu could offer
+   specific app-templates entries as quick-start options. This is a UX enhancement,
+   not a structural change.

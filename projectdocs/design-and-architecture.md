@@ -7,8 +7,7 @@ into a single repo. Composable DAB-based deployment from stacks, evaluation and
 monitoring depth from redux.
 
 Implementation steps, milestones, and current status are in
-[implementation-plan.md](implementation-plan.md). Team decisions, action items, and
-delivery targets are in [project-notes.md](project-notes.md).
+[implementation-plan.md](implementation-plan.md).
 
 The agentops-stacks repo has its own CLAUDE.md with the standing technical requirements
 and validation instructions that govern code changes. Design priorities and architecture
