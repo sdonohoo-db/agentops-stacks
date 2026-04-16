@@ -1,0 +1,28 @@
+# CI/CD — GitHub Actions
+
+This directory contains GitHub Actions workflows for validating and deploying your agent project as a Databricks Asset Bundle.
+
+## Workflows
+
+| File | Trigger | What it does |
+|------|---------|-------------|
+| `deploy-cicd.yml` | Manual | Generates project-specific workflow files. Run once per project. |
+| `{{ .input_project_name }}-bundle-cicd.yml` | PR to `main`, merge to `main`, merge to `release` | Validates bundle config (CI), deploys to staging (CD on main merge), deploys to prod (CD on release merge) |
+| `{{ .input_project_name }}-tests-ci.yml` | PR to `main` | Runs unit and integration tests |
+
+## Setup
+
+1. Create service principals for staging and prod workspaces
+2. Add required secrets to your GitHub repo (see [README](../../README.md))
+3. Enable "Read and write permissions" under Repo Settings > Actions > General > Workflow permissions
+4. Run `deploy-cicd.yml` manually to generate the project workflows
+
+## Pipeline flow
+
+```
+PR to main  →  validate bundle (staging + prod) + run tests
+Merge to main  →  deploy to staging
+Merge to release  →  deploy to prod
+```
+
+For details, see the [README](../../README.md).

@@ -1,0 +1,23 @@
+image: databricksfieldeng/mlopsstacks:latest
+
+unit-test:
+  stage: test
+  script:
+    - python3 --version
+    - pip --version
+    - pytest --junitxml=test-unit.xml
+  rules:
+    - when: on_success
+
+integration-test:
+  stage: test
+  environment: dev
+  variables:
+    DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
+    DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
+  script:
+    - cd .
+    - databricks bundle validate -t test
+    - databricks bundle deploy -t test
+  rules:
+    - when: on_success

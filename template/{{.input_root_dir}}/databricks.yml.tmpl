@@ -1,0 +1,38 @@
+bundle:
+  name: {{ .input_project_name }}
+  engine: direct
+
+resources:
+  experiments:
+    {{template `project_name_alphanumeric_underscore` .}}_experiment:
+      name: /Users/${workspace.current_user.userName}/{{ .input_project_name }}
+
+# Auto-discover resource definitions added by setup or components
+include:
+  - ./resources/*.yml
+
+sync:
+  include:
+    - scripts/**
+    - pyproject.toml
+    - .env.example
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: # TODO: set your dev workspace URL
+
+  staging:
+    workspace:
+      host: # TODO: set your staging workspace URL
+
+  prod:
+    mode: production
+    workspace:
+      host: # TODO: set your prod workspace URL
+
+  test:
+    workspace:
+      host: # TODO: set your test workspace URL (often same as staging)

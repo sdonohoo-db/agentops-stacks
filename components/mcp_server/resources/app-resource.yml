@@ -1,0 +1,17 @@
+# MCP Server resource definition
+# INSTANCE_NAME is replaced by the setup script with the project's resource key.
+
+resources:
+  apps:
+    INSTANCE_NAME_mcp:
+      name: ${bundle.target}-INSTANCE_DASH_NAME
+      description: "${bundle.name} MCP server - ${bundle.target}"
+      source_code_path: ../
+      config:
+        command: ["uv", "run", "custom-mcp-server"]
+
+      # permissions:
+      #   - level: CAN_MANAGE
+      #     group_name: users
+      # user_api_scopes:
+      #   - CLASSIC

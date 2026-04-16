@@ -1,0 +1,63 @@
+{
+  "welcome_message": "Welcome to AgentOps Stacks. This template creates a Databricks Asset Bundle for AI agent projects.\nAfter initialization, run 'uv run setup' to select and install your agent framework.",
+  "min_databricks_cli_version": "v0.288.0",
+  "properties": {
+    "input_setup_cicd_and_project": {
+      "order": 1,
+      "type": "string",
+      "description": "{{if false}}\n\nERROR: This template is not supported by your current Databricks CLI version.\nPlease hit control-C and go to https://docs.databricks.com/en/dev-tools/cli/install.html for instructions on upgrading the CLI to the minimum version supported by AgentOps Stacks.\n\n{{end}}\nSelect if both CI/CD and the Project should be set up, or only one of them.\nYou can always set up the other later by running initialization again",
+      "default": "CICD_and_Project",
+      "enum": ["CICD_and_Project", "Project_Only", "CICD_Only"]
+    },
+    "input_project_name": {
+      "order": 2,
+      "type": "string",
+      "default": "my_agentops_project",
+      "description": "\nProject Name. Default",
+      "pattern": "^[^ .\\\\/]{3,}$",
+      "pattern_match_failure_message": "Project name must be at least 3 characters long and cannot contain the following characters: \"\\\", \"/\", \" \" and \".\".",
+      "skip_prompt_if": {
+        "properties": {
+          "input_setup_cicd_and_project": {
+            "const": "CICD_Only"
+          }
+        }
+      }
+    },
+    "input_root_dir": {
+      "order": 3,
+      "type": "string",
+      "default": "{{ .input_project_name }}",
+      "description": "\nRoot directory name.\nDefault",
+      "skip_prompt_if": {
+        "properties": {
+          "input_setup_cicd_and_project": {
+            "const": "CICD_and_Project"
+          }
+        }
+      }
+    },
+    "input_cloud": {
+      "order": 4,
+      "type": "string",
+      "description": "\nSelect cloud",
+      "default": "azure",
+      "enum": ["azure", "aws", "gcp"]
+    },
+    "input_cicd_platform": {
+      "order": 5,
+      "type": "string",
+      "description": "\nSelect CI/CD platform",
+      "default": "github_actions",
+      "enum": ["github_actions", "github_actions_for_github_enterprise_servers", "azure_devops", "gitlab"],
+      "skip_prompt_if": {
+        "properties": {
+          "input_setup_cicd_and_project": {
+            "const": "Project_Only"
+          }
+        }
+      }
+    }
+  },
+  "success_message": "\n*** Your AgentOps Stack has been created in the '{{.input_root_dir}}' directory. ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. uv run setup          # Select and install your agent framework\n  3. Edit databricks.yml   # Set workspace hosts and Unity Catalog config\n  4. databricks bundle validate -t dev\n  5. databricks bundle deploy -t dev"
+}

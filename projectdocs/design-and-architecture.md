@@ -1,0 +1,313 @@
+# AgentOps Stacks — Design Principles & Architecture
+
+**Last Updated:** 2026-04-15
+
+Merge agentops-stacks (DAB template) and agentops-stacks-redux (deployable framework)
+into a single repo. Composable DAB-based deployment from stacks, evaluation and
+monitoring depth from redux.
+
+Implementation steps, milestones, and current status are in
+[implementation-plan.md](implementation-plan.md). Team decisions, action items, and
+delivery targets are in [project-notes.md](project-notes.md).
+
+The agentops-stacks repo has its own CLAUDE.md with the standing technical requirements
+and validation instructions that govern code changes. Design priorities and architecture
+below are the reference the team validates against. The repo CLAUDE.md should stay
+aligned with this document.
+
+## Design Priorities (in order)
+
+1. **Flexible, extendable, composable model for building AI solutions.** The component
+   architecture is the core value proposition. Every design decision should preserve
+   the ability to add, remove, and combine modules without breaking the project. If a
+   choice makes one component easier but makes composition harder, composition wins.
+
+2. **Opinionated evaluation gates.** Every component that can be evaluated ships with
+   evaluation built in — not as an optional add-on. Agent components include quality
+   gates. Data components include validation checks. The default is eval-on, not
+   eval-off. Where evaluation isn't yet possible for a component type (e.g., pending
+   SDK support for Genie Benchmarks or KA Guidelines), include a stub that documents
+   what will be evaluated and exits cleanly without blocking.
+
+3. **Closed-loop operations, not demos.** Every operational capability (evaluation,
+   monitoring, feedback, optimization) must close the loop back to development action.
+   Production evaluation results feed back into dev as new eval dataset entries or
+   regression test cases. User/SME feedback on production traces becomes annotation
+   candidates. Monitoring alerts map to runbooks or automated remediation. The pattern
+   must show the user not just how to observe a deployed agent but how the observation
+   drives the next improvement cycle through the dev → staging → prod pipeline. If a
+   component only demonstrates a capability without connecting it to the feedback loop,
+   it's incomplete.
+
+4. **Challenge assumptions at every step.** After completing a design decision,
+   research task, or implementation step, pose follow-up questions that challenge
+   the result or clarify what should come next. Don't just deliver an answer — surface
+   what's still uncertain, what could break the assumption, or what the next decision
+   depends on. This applies to AI-assisted work (Claude should ask, not just execute)
+   and to team collaboration (every review should end with "what are we missing?").
+
+5. **Security is not a separate concern — it's built into every component.** Don't
+   treat security as a standalone checklist applied at the end. Every component and
+   interaction must consider data exposure, credential handling, and compliance from
+   the start. For each component, document: what data flows through it, where that
+   data is stored or logged, and what compliance implications that creates.
+
+   **Worked example — MLflow Prompt Registry and HIPAA:** MLflow 3 core (tracing,
+   evaluation, models) is HIPAA-supported, but Prompt Registry is Beta and not listed
+   under "Supported preview features" — so it's non-PHI only. Resolution: disable it
+   in HIPAA workspaces or scope to non-PHI templates. This is the level of diligence
+   required for every component: what is GA vs preview, what data touches it, where
+   does that data land? Each component's manifest documents this.
+
+   Reference the Databricks AI Security Framework (DASF) for baseline practices. But
+   DASF is the floor, not the ceiling — regulated industries (healthcare, financial
+   services) have additional constraints that the component documentation should flag
+   even if the component can't solve them directly.
+
+   **Our role is guidance, not enforcement.** We can't prevent a customer from making
+   inadvisable choices. What we can control:
+   - **No lazy defaults.** If there's a more secure way to deploy a resource, that's
+     the way the component deploys it. Don't take shortcuts that a customer then has to
+     undo — use UC-governed resources, scoped credentials, least-privilege permissions,
+     and workspace-boundary data flows by default.
+   - **Practical security documentation per component.** Each component ships with
+     documentation on how to secure it in practice — not abstract DASF control
+     mappings, but concrete guidance: what to configure, what to restrict, what to
+     watch for in production. Written for the person doing the deployment, not the
+     person writing the compliance report.
+
+   **Long-term goal: DASF 3.0 posture visibility.** Any solution generated by
+   agentops-stacks should be assessable against DASF 3.0 control points. Each
+   component's documentation covers which DASF practices it implements by default,
+   which require customer configuration, and which are outside the component's scope.
+   A customer (or their security team) should be able to read the component docs for
+   their assembled solution and understand their security posture without reverse-
+   engineering the deployment.
+
+6. **Compatible with ai-dev-kit, not dependent on it.** The
+   [ai-dev-kit](https://github.com/databricks-solutions/ai-dev-kit) provides MCP
+   servers and skills that make coding assistants effective at creating and managing
+   individual Databricks resources — jobs, dashboards, pipelines, serving endpoints,
+   vector indexes, apps, UC resources, and more. It can help a user build pieces of
+   an agent solution, but it does not address the holistic view of a production system:
+   no evaluation gates, no CI/CD pipeline generation, no multi-environment lifecycle
+   orchestration, no production monitoring, no human-in-the-loop feedback loops, no
+   composable project templates, no per-component security documentation.
+
+   agentops-stacks is the operational framework that sits above ai-dev-kit. ai-dev-kit
+   is the development interface (the "Coding Agent Skills" box in the tooling
+   architecture); agentops-stacks provides the project structure, lifecycle, and
+   operational infrastructure that ai-dev-kit doesn't touch. However, agentops-stacks
+   must stand on its own. A user with ai-dev-kit gets a richer experience; a user
+   without it can still init, configure, deploy, and operate using the CLI, the DAB
+   directly, or any other tooling. ai-dev-kit is an accelerator, not a prerequisite.
+
+   Principles:
+   - **Self-sufficient without ai-dev-kit.** Every workflow (init, add component,
+     configure, validate, deploy, evaluate) must be completable through the CLI or by
+     editing DAB files directly. Documentation should describe the workflow in terms of
+     what the user does, not which ai-dev-kit skill to invoke. If ai-dev-kit makes a
+     step easier, note that — but the step must work without it.
+   - **Build ai-dev-kit skills that extend into the operational domain.** New skills
+     should teach coding assistants how to assemble components, configure eval gates,
+     set up promotion pipelines, and work within the agentops-stacks project structure.
+     These skills are contributions back to ai-dev-kit, not a parallel system.
+   - **Don't rebuild what ai-dev-kit already does.** If ai-dev-kit can create a vector
+     search index or deploy an app, agentops-stacks should define the resource
+     declaratively in the DAB and let ai-dev-kit skills help the user configure it.
+     Competing mechanisms for the same action create confusion.
+   - **agentops-stacks focuses on what ai-dev-kit does not cover:**
+     the project as a composable unit (DAB generation), the lifecycle (CI/CD, eval
+     gates, promotion), the operational loop (monitoring, HITL feedback, closed-loop
+     improvement), and the compliance posture (per-component security documentation,
+     DASF mapping, data flow analysis).
+
+## Architecture
+
+Two levels: **tooling architecture** (how agentops-stacks builds DAB projects) and
+**target solution architecture** (the multi-environment agent lifecycle a deployed
+DAB implements). Any given DAB may implement only a subset (a standalone MCP server,
+a vector index, a single agent with eval) depending on what the user assembles.
+
+### Target Solution Architecture (what the DAB implements)
+
+Reference architectures from the draft Big Book of LLMOps define the production
+patterns our generated DABs must conform to. Where our implementation diverges from
+these diagrams, we either align or explicitly document why the divergence is justified.
+
+Four views form a 2x2 matrix — same core architecture, scaled along two axes:
+
+```
+                        Single-Agent              Multi-Agent
+                   ┌───────────────────────┬───────────────────────┐
+  Single-Account   │  Simplest case.       │  Multiple agents in   │
+                   │  One agent, three     │  one account. Shared  │
+                   │  environments, one    │  catalogs, routing,   │
+                   │  UC account.          │  per-agent eval.      │
+                   ├───────────────────────┼───────────────────────┤
+  Multi-Account    │  Separate accounts    │  Full enterprise      │
+                   │  for dev/staging/     │  pattern. Account     │
+                   │  prod. Data Sharing   │  isolation + Data     │
+                   │  bridges catalogs.    │  Sharing + multi-     │
+                   │                       │  agent orchestration. │
+                   └───────────────────────┴───────────────────────┘
+```
+
+All four share this core lifecycle:
+
+```
+  Git Provider
+  (feature branch)──────────(main branch)────────────(release branch)──────────────
+        │                        │                          │
+        ▼                        ▼                          ▼
+  ┌─────────────────┐    ┌───────────────────┐    ┌──────────────────────┐
+  │  DEVELOPMENT    │    │  STAGING /        │    │  PRODUCTION          │
+  │                 │    │  VALIDATION       │    │                      │
+  │  Data Prep      │    │  Unit Tests       │    │  Continuous Deploy   │
+  │  Agent Dev      │    │  Integration      │    │  App / Endpoint      │
+  │  Evaluation     │    │  Validation       │    │  Batch Inference     │
+  │  App Deploy     │    │  Pre-prod Eval    │    │  Monitoring          │
+  │  (dev target)   │    │  Gates            │    │  Online Eval         │
+  └────────┬────────┘    └────────┬──────────┘    └──────────┬───────────┘
+           │                      │                          │
+      Dev Catalog            Test Catalog              Prod Catalog
+           └──────────────────────┴──────────────────────────┘
+                            Unity Catalog
+```
+
+Multi-account variants add **Data Sharing** between accounts so that catalogs in
+isolated accounts can exchange data across the dev → staging → prod boundary.
+
+Multi-agent variants add per-agent workflow blocks, routing/orchestration, and
+per-agent evaluation within each environment.
+
+### Tooling Architecture (how agentops-stacks builds the DAB)
+
+The tooling is layered left-to-right: user-facing interfaces on the left, production
+infrastructure on the right. Each layer depends only on the layer to its right.
+
+```
+ USER INTERFACES           THREE PATHS TO POPULATE A DAB             DAB                  CI/CD
+ (how you build)           (pick one to start, mix in components)    (project structure)  (how it ships)
+
+                           ┌─────────────────────────────────────┐
+                     ┌────▶│  A. Quick-Start Examples             │
+                     │     │     Imported from databricks/        │
+                     │     │     app-templates repo               │
+                     │     │                                      │
+                     │     │     langgraph, openai-sdk,           │
+ ┌─────────────────┐ │     │     mcp-server, multi-agent, ...    │
+ │  CLI Tools      │ │     │     Fastest path. Minimal agent     │──┐
+ │  (bundle init,  │ │     │     app, no ops scaffolding.        │  │
+ │   setup script) │─┤     └─────────────────────────────────────┘  │
+ │                 │ │                                               │
+ ├─────────────────┤ │     ┌─────────────────────────────────────┐  │
+ │  Drag-and-Drop  │ │     │  B. Solution Templates              │  │   ┌──────────────┐   ┌──────────────┐
+ │  App Builder    │─┼────▶│     Pre-assembled from components   │  │   │              │   │              │
+ │                 │ │     │     for common production patterns  │  │   │  Databricks  │   │  GitHub      │
+ ├─────────────────┤ │     │                                      │  │   │  Asset       │   │  Actions     │
+ │  Coding Agent   │ │     │     RAG                             │  ├──▶│  Bundle      │──▶│              │
+ │  Skills         │─┤     │     Document Intelligence           │  │   │              │   │  Azure       │
+ │  (Claude Code,  │ │     │     Process Automation              │  │   │  databricks  │   │  DevOps      │
+ │   Cursor, etc.) │ │     │     Multi-agent                     │──┘   │  .yml        │   │              │
+ └─────────────────┘ │     │     Best-practice architecture,     │      │  resources/  │   │  GitLab      │
+                     │     │     ready to init and deploy.       │      │  targets/    │   │              │
+                     │     └─────────────────────────────────────┘      │              │   └──────┬───────┘
+                     │                                                  └──────┬───────┘          │
+                     │     ┌─────────────────────────────────────┐            │                  │
+                     │     │  C. Component Assembly               │            │                  ▼
+                     └────▶│     Discrete modules added to a      │            │        ┌──────────────────┐
+                           │     blank DAB one at a time          │            │        │  Dev / Staging /  │
+                           │                                      │──(blank)──▶│        │  Prod Workspaces  │
+                           │     Eval gates                      │            │        │                  │
+                           │     Monitoring / observability      │            └───────▶│  Apps, Jobs,     │
+                           │     Data prep pipelines             │                    │  Endpoints,      │
+                           │     MCP servers                     │                    │  Experiments     │
+                           │     Lakebase / VS / UC resources    │                    └──────────────────┘
+                           │     CI/CD workflow configs           │
+                           │     Pick what you need, skip        │
+                           │     what you don't.                 │
+                           └─────────────────────────────────────┘
+```
+
+**Reading the diagram:**
+
+1. A user picks an **interface** — CLI tools, drag-and-drop app builder, or coding
+   assistant skills. All three can access all three content paths.
+2. The user chooses one of **three paths** to populate a DAB project:
+   - **A. Quick-Start Examples** — imported from `databricks/app-templates`. Fastest
+     way to get an agent running. Minimal: just the agent app, no ops scaffolding.
+   - **B. Solution Templates** — pre-built DAB templates for common production patterns.
+     Assembled from the same components available in path C, frozen into a ready-to-init
+     template that ensures best practice architecture for that scenario.
+   - **C. Component Assembly** — start with a blank DAB and add discrete modules one at
+     a time. Maximum flexibility, build exactly what you need.
+3. All three paths produce the same output: a **Databricks Asset Bundle** with
+   `databricks.yml`, resource declarations, and target configs.
+4. The DAB feeds into **CI/CD workflows** that handle dev/staging/prod promotion with
+   evaluation gates.
+
+Key principles:
+- Components are the atomic unit. Solution templates are pre-assembled combinations,
+  frozen as a starting point. They exist so customers don't have to assemble common
+  patterns themselves, and so we can ensure best practice architecture for those
+  scenarios.
+- All three paths produce the same DAB structure. The CI/CD layer doesn't know or care
+  how the project was assembled.
+- Paths can be mixed: start from a quick-start example or solution template, then add
+  individual components (eval, monitoring, etc.) to fill gaps.
+
+### Component Specification
+
+Each composable component is defined by two things:
+
+1. **DAB artifacts** — the subset of configuration, job workflows, and code needed to
+   add this capability to an existing DAB. Self-contained and additive.
+2. **Component manifest** (`component.md`) — structured metadata describing what the
+   component is, what it needs, and how to use it.
+
+Component manifest covers: name, description, category, dependencies, platform
+resources (creates/requires), DAB variables, data flows, compliance metadata
+(feature status, HIPAA support, security defaults, customer actions), documentation
+links, and examples.
+
+Component directory structure:
+```
+components/<component_name>/
+├── component.md           ← Manifest + documentation
+├── databricks.yml         ← DAB resource snippet
+├── resources/             ← Job workflow definitions (optional)
+├── notebooks/             ← Databricks notebooks (optional)
+├── src/                   ← Python source code (optional)
+└── app.yaml               ← App runtime config (optional)
+```
+
+Manifests are consumed by CLI tools, the drag-and-drop app, coding assistant skills,
+and pre-flight validation (`requires` and `platform_resources.requires` fields enable
+checks before `bundle deploy`).
+
+## Governance & Platform Constraints
+
+From the Databricks AI Governance Strategy (March 2026) and team sync decisions.
+
+- **UC securables are expanding over summer 2026.** How we reference securable objects
+  (agents, models, tools, skills) will need to evolve. Avoid hardcoding current
+  resource type assumptions where possible.
+- **AI Gateway is the governance enforcement layer.** Design the guardrails component
+  around AI Gateway configuration — not just content filtering but agent behavioral
+  restrictions as the platform evolves.
+- **Tool Gateway / MCP governance is coming.** MCP servers will be first-class UC
+  securables with identity propagation. Our MCP server component should document how
+  it integrates with Tool Gateway once available.
+- **Structured observability, not custom schemas.** Monitoring components should emit
+  structured logs compatible with Lakewatch (platform AI-optimized SIEM, in
+  development). Use MLflow/OTel trace formats, don't invent custom log schemas.
+- **External agents are a future hosting pattern.** No first-class UC object yet, but
+  the current pattern (UC connections + registry table + pyfunc wrapper + centralized
+  telemetry) works with GA building blocks. Eval and monitoring components should work
+  against any agent that emits standard traces, not just Databricks-hosted agents.
+- **Identity propagation (OBO)** is outside our scope to implement but is a
+  `customer_actions` item in component manifests — document what identity model each
+  component assumes.
+- **Cost tracking** carries forward from redux (MLflow token logging) as a default in
+  agent components. A full cost assessment tool is a future add-on.

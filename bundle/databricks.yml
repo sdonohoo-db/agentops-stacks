@@ -1,7 +1,0 @@
-# This file is superseded by /databricks.yml at the project root.
-# DAB expects databricks.yml at the project root. Run all bundle commands
-# from the agentops-redux/ directory:
-#
-#   cd agentops-redux/
-#   databricks bundle validate --target dev
-#   databricks bundle deploy --target dev

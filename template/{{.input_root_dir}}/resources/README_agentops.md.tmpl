@@ -1,0 +1,68 @@
+# Resources
+[(back to project README)](../README.md)
+
+## What's in this directory
+
+Resource YAML files define Databricks resources deployed by the bundle. Files in this
+directory are auto-discovered via the `include: ./resources/*.yml` directive in
+`databricks.yml`.
+
+After running `uv run setup` with an agent template, this directory will contain:
+
+| File | Resources |
+|------|-----------|
+| `app-resource.yml` | Databricks App — serves your agent via MLflow AgentServer |
+
+Additional resource files can be added for other components (jobs, model serving
+endpoints, etc.). Any `.yml` file placed here is automatically included in the bundle.
+
+## How Databricks Asset Bundles work
+
+Resources are defined as YAML and deployed together with your code via
+`databricks bundle deploy`. The CLI reads `databricks.yml` (the bundle root),
+resolves variable substitutions for the target environment, and creates or updates
+each resource in the workspace.
+
+Key patterns:
+- **`${bundle.target}`** — replaced with the target name (dev, staging, prod). Used
+  in resource names to avoid collisions across environments.
+- **`${var.variable_name}`** — bundle variables defined in `databricks.yml`. Override
+  per-target under `targets.<name>.variables`.
+
+## Deployment targets
+
+| Target | When | Mode |
+|--------|------|------|
+| dev | Manual (`databricks bundle deploy -t dev`) | development |
+| staging | Merge to `main` (via CI/CD) | default |
+| prod | Merge to `release` (via CI/CD) | production |
+
+## Validate and deploy
+
+```bash
+databricks bundle validate -t dev
+databricks bundle deploy -t dev
+```
+
+## Clean up
+
+```bash
+databricks bundle destroy -t dev
+```
+
+This removes bundle-managed resources. Data assets (tables, volumes, vector search
+indexes) not managed by the bundle must be removed manually.
+
+## Adding resources
+
+Add a `.yml` file to this directory following the DAB resource schema. Run
+`databricks bundle schema` to see available resource types and properties.
+
+```bash
+databricks bundle validate -t dev    # check config after changes
+databricks bundle deploy -t dev      # deploy
+```
+
+[Databricks Asset Bundles resource reference](https://docs.databricks.com/aws/en/dev-tools/bundles/resources)
+
+[Back to project README](../README.md)

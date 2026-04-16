@@ -1,0 +1,46 @@
+name: Bundle Deployment for {{ .input_project_name }} Prod
+
+on:
+  push:
+    branches:
+      - 'release'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: .
+
+env:
+  {{ if (eq .input_cloud `azure`) -}}
+  ARM_TENANT_ID: {{`${{ secrets.PROD_AZURE_SP_TENANT_ID }}`}}
+  ARM_CLIENT_ID: {{`${{ secrets.PROD_AZURE_SP_APPLICATION_ID }}`}}
+  ARM_CLIENT_SECRET: {{`${{ secrets.PROD_AZURE_SP_CLIENT_SECRET }}`}}
+  {{ else -}}
+  DATABRICKS_TOKEN: {{`${{ secrets.PROD_WORKSPACE_TOKEN }}`}}
+  {{- end }}
+
+jobs:
+  prod:
+    concurrency: {{ .input_project_name }}-prod-bundle-job
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@{{template `cli_version` .}}
+      - name: Validate Bundle For Prod
+        id: validate
+        run: |
+          databricks bundle validate -t prod
+      - name: Deploy Bundle to Prod
+        id: deploy
+        run: |
+          databricks bundle deploy -t prod
+      - name: Start Apps in Prod
+        id: start_apps
+        run: |
+          # Run all app resources to deploy source and start them
+          APP_KEYS=$(databricks bundle summary -t prod -o json \
+            | python3 -c "import sys,json; apps=json.load(sys.stdin).get('resources',{}).get('apps',{}); [print(k) for k in apps]" 2>/dev/null) || true
+          for app_key in $APP_KEYS; do
+            echo "Starting app: $app_key"
+            databricks bundle run "$app_key" -t prod
+          done
