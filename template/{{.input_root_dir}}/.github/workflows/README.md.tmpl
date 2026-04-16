@@ -6,7 +6,6 @@ This directory contains GitHub Actions workflows for validating and deploying yo
 
 | File | Trigger | What it does |
 |------|---------|-------------|
-| `deploy-cicd.yml` | Manual | Generates project-specific workflow files. Run once per project. |
 | `{{ .input_project_name }}-bundle-cicd.yml` | PR to `main`, merge to `main`, merge to `release` | Validates bundle config (CI), deploys to staging (CD on main merge), deploys to prod (CD on release merge) |
 | `{{ .input_project_name }}-tests-ci.yml` | PR to `main` | Runs unit and integration tests |
 
@@ -15,7 +14,6 @@ This directory contains GitHub Actions workflows for validating and deploying yo
 1. Create service principals for staging and prod workspaces
 2. Add required secrets to your GitHub repo (see [README](../../README.md))
 3. Enable "Read and write permissions" under Repo Settings > Actions > General > Workflow permissions
-4. Run `deploy-cicd.yml` manually to generate the project workflows
 
 ## Pipeline flow
 

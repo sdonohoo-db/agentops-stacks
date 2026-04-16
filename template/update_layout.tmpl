@@ -38,8 +38,6 @@
     {{ skip (printf `%s/%s` $root_dir `.gitignore`) }}
     {{ skip (printf `%s/%s` $root_dir `README.md`) }}
     {{ skip (printf `%s/%s` $root_dir `test-requirements.txt`) }}
-    {{ skip (printf `%s/%s` $root_dir `cicd.tar.gz`) }}
-    {{ skip (printf `%s/%s` $root_dir `cicd_params.json`) }}
 {{ else if (eq .input_setup_cicd_and_project `CICD_Only`) }}
     {{ skip (printf `%s/%s` $root_dir `databricks.yml`) }}
     {{ skip (printf `%s/%s` $root_dir `requirements.txt`) }}
@@ -76,6 +74,5 @@
 {{ end }}
 
 # Remove template processing files
-{{ skip (printf `%s/%s` $root_dir `cicd`) }}
 {{ skip `update_layout` }}
 {{ skip `run_validations` }}
