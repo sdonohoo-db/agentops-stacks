@@ -7,6 +7,7 @@ Components are fetched from the agentops-stacks repo. Agent examples are fetched
 from databricks/app-templates.
 """
 
+import argparse
 import json
 import os
 import re
@@ -903,22 +904,29 @@ SOLUTION_PATTERNS = [
 ]
 
 
+def _slugify(name: str) -> str:
+    """Stable lowercase slug for use as a menu entry key."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+
+
 def build_menu(templates: list[dict]) -> list[dict]:
     """Organize templates into grouped menu entries."""
     menu = []
 
     # --- Base Templates ---
     menu.append({"name": "Empty DAB (no components)", "group": "Base Templates",
-                 "selectable": True, "action": "empty_dab"})
+                 "selectable": True, "action": "empty_dab", "key": "empty_dab"})
     menu.append({"name": "Single Agent (Databricks App)", "group": "Base Templates",
-                 "selectable": True, "action": "single_agent"})
+                 "selectable": True, "action": "single_agent", "key": "single_agent"})
     menu.append({"name": "Single MCP Server", "group": "Base Templates",
-                 "selectable": True, "action": "mcp_server"})
+                 "selectable": True, "action": "mcp_server", "key": "mcp_server"})
 
     # --- Solution Patterns ---
     for sp in SOLUTION_PATTERNS:
         menu.append({"name": sp["name"], "group": "Solution Patterns",
-                     "selectable": False, "action": "future", "tag": sp["tag"] + " (Coming soon)"})
+                     "selectable": False, "action": "future",
+                     "key": _slugify(sp["name"]),
+                     "tag": sp["tag"] + " (Coming soon)"})
 
     # --- Agent App Examples (from databricks/app-templates) ---
     agents_simple = [t for t in templates
@@ -935,7 +943,9 @@ def build_menu(templates: list[dict]) -> list[dict]:
         else:
             tag = "(Coming soon)"
         menu.append({"name": t["name"], "group": "Agent App Examples",
-                     "selectable": False, "action": "install", "tag": tag,
+                     "selectable": False, "action": "install",
+                     "key": t["name"],
+                     "tag": tag,
                      "description": t.get("description", "")})
 
     return menu
@@ -1047,62 +1057,42 @@ def get_user_workspace_client() -> WorkspaceClient:
     print(f"  Created {utils_py.relative_to(PROJECT_ROOT)}")
 
 
-def main():
-    print("AgentOps Setup")
-    print("=" * 50)
-    print(f"Fetching available templates from {APP_TEMPLATES_REPO}...\n")
-
-    templates = fetch_template_list()
-    if not templates:
-        print("Could not fetch template list. Check your network connection.")
-        print(f"You can browse templates at: https://github.com/{APP_TEMPLATES_REPO}")
-
-    menu = build_menu(templates)
-    selectable = [e for e in menu if e["selectable"]]
-    max_choice = print_menu(menu)
-
-    while True:
-        try:
-            choice = input(f"\nSelect a template [1-{max_choice}, 0 to exit]: ").strip()
-            if choice == "0":
-                print("\nExiting. Run 'uv run setup' again when ready.")
-                return
-            num = int(choice)
-            if 1 <= num <= max_choice:
-                break
-        except (ValueError, EOFError):
-            pass
-        print("Invalid selection, try again.")
-
-    selected = selectable[num - 1]
-
+def apply_selection(selected: dict) -> None:
+    """Install the chosen menu entry. Shared by interactive and --option paths."""
     # Empty DAB — nothing to install, just confirm
     if selected["action"] == "empty_dab":
         print("\nEmpty DAB scaffold ready.")
-        print("\nNext steps:")
-        print("  1. Set workspace URLs in databricks.yml targets")
-        print("  2. Add components to resources/ as needed")
-        print("  3. Run 'databricks bundle validate' to check config")
-        print("  4. Run 'databricks bundle deploy -t dev' to deploy")
+        print("\nConfigure:")
+        print("  1. Add components to resources/ as needed")
+        print("\nDeploy to Databricks:")
+        print("  1. Edit databricks.yml         # Set workspace hosts and Unity Catalog config")
+        print("  2. databricks bundle validate -t dev")
+        print("  3. databricks bundle deploy -t dev")
         return
 
     # Component-based templates
     if selected["action"] == "single_agent":
         install_components(["agent_app"])
         print("Single Agent installed.")
-        print("\nNext steps:")
-        print("  1. Edit agent_server/agent.py with your agent logic")
-        print("  2. To test locally: uv sync && uv run start-server")
-        print("  3. Run 'databricks bundle deploy -t dev' to deploy")
+        print("\nTest locally:")
+        print("  1. Edit agent_server/agent.py  # Add your agent logic")
+        print("  2. uv sync && uv run start-server")
+        print("\nDeploy to Databricks:")
+        print("  1. Edit databricks.yml         # Set workspace hosts and Unity Catalog config")
+        print("  2. databricks bundle validate -t dev")
+        print("  3. databricks bundle deploy -t dev")
         return
 
     if selected["action"] == "mcp_server":
         install_components(["mcp_server"])
         print("Single MCP Server installed.")
-        print("\nNext steps:")
+        print("\nTest locally:")
         print("  1. Add your tools in server/tools.py")
-        print("  2. To test locally: uv sync && uv run custom-mcp-server")
-        print("  3. Run 'databricks bundle deploy -t dev' to deploy")
+        print("  2. uv sync && uv run custom-mcp-server")
+        print("\nDeploy to Databricks:")
+        print("  1. Edit databricks.yml         # Set workspace hosts and Unity Catalog config")
+        print("  2. databricks bundle validate -t dev")
+        print("  3. databricks bundle deploy -t dev")
         return
 
     # Agent templates — set up agent infrastructure first
@@ -1116,10 +1106,13 @@ def main():
     if selected["action"] == "empty_scaffold":
         install_empty_scaffold()
         print("\nEmpty Agent Scaffold installed.")
-        print("\nNext steps:")
-        print("  1. Edit agent_server/agent.py with your agent logic")
-        print("  2. To test locally: uv sync && uv run start-server")
-        print("  3. Run 'databricks bundle deploy -t dev' to deploy")
+        print("\nTest locally:")
+        print("  1. Edit agent_server/agent.py  # Add your agent logic")
+        print("  2. uv sync && uv run start-server")
+        print("\nDeploy to Databricks:")
+        print("  1. Edit databricks.yml         # Set workspace hosts and Unity Catalog config")
+        print("  2. databricks bundle validate -t dev")
+        print("  3. databricks bundle deploy -t dev")
         return
 
     template_name = selected["name"]
@@ -1137,17 +1130,105 @@ def main():
 
     if sparse_checkout(template_name, PROJECT_ROOT):
         print(f"\nInstalled '{template_name}' into project.")
-        print("\nNext steps:")
+        print("\nTest locally:")
         if template_name.startswith("agent-"):
             print("  1. Review agent_server/agent.py and configure your agent")
-            print("  2. To test locally: uv sync && uv run start-server")
+            print("  2. uv sync && uv run start-server")
         else:
             print("  1. Review the installed files and configure as needed")
-            print("  2. To test locally: uv sync")
-        print("  3. Run 'databricks bundle deploy -t dev' to deploy")
+            print("  2. uv sync")
+        print("\nDeploy to Databricks:")
+        print("  1. Edit databricks.yml         # Set workspace hosts and Unity Catalog config")
+        print("  2. databricks bundle validate -t dev")
+        print("  3. databricks bundle deploy -t dev")
     else:
         print("\nSetup failed. See errors above.")
         sys.exit(1)
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="uv run setup",
+        description="AgentOps Setup — select and install components and agent frameworks.",
+    )
+    parser.add_argument(
+        "--option",
+        metavar="KEY",
+        help="Non-interactive: install the menu entry with this key. See --list.",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="Print available options with their keys and exit.",
+    )
+    return parser.parse_args()
+
+
+def _print_options(menu: list[dict]) -> None:
+    """Print all menu entries with their keys, grouped, for scripting use."""
+    key_width = max(len(e.get("key", "")) for e in menu)
+    current_group = None
+    for entry in menu:
+        if entry["group"] != current_group:
+            current_group = entry["group"]
+            print(f"\n{current_group}")
+        status = "selectable" if entry["selectable"] else "coming-soon"
+        desc = f"  — {entry['description']}" if entry.get("description") else ""
+        print(f"  {entry.get('key', ''):<{key_width}}  [{status}]  {entry['name']}{desc}")
+
+
+def main():
+    args = _parse_args()
+
+    is_interactive = not args.list and not args.option
+
+    if is_interactive:
+        print("AgentOps Setup")
+        print("=" * 50)
+        print(f"Fetching available templates from {APP_TEMPLATES_REPO}...\n")
+
+    templates = fetch_template_list()
+    menu = build_menu(templates)
+
+    if args.list:
+        _print_options(menu)
+        return
+
+    if args.option:
+        match = next((e for e in menu if e.get("key") == args.option), None)
+        if match is None:
+            print(f"Unknown option: {args.option}", file=sys.stderr)
+            print("Run 'uv run setup --list' to see available options.", file=sys.stderr)
+            sys.exit(2)
+        if not match["selectable"]:
+            tag = match.get("tag", "")
+            print(f"Option '{args.option}' is not yet selectable {tag}".rstrip(), file=sys.stderr)
+            sys.exit(2)
+        apply_selection(match)
+        return
+
+    # Interactive path
+    if not templates:
+        print("Could not fetch template list. Check your network connection.")
+        print(f"You can browse templates at: https://github.com/{APP_TEMPLATES_REPO}")
+
+    selectable = [e for e in menu if e["selectable"]]
+    max_choice = print_menu(menu)
+
+    while True:
+        try:
+            choice = input(f"\nSelect a template [1-{max_choice}, 0 to exit]: ").strip()
+            if choice == "0":
+                print("\nExiting. Run 'uv run setup' again when ready.")
+                return
+            num = int(choice)
+            if 1 <= num <= max_choice:
+                break
+        except (ValueError, EOFError):
+            pass
+        print("Invalid selection, try again.")
+
+    apply_selection(selectable[num - 1])
 
 
 if __name__ == "__main__":
