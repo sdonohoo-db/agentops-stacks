@@ -141,7 +141,6 @@ def test_generate_project_with_default_values(
     Asserts the default parameter values. If this test fails due to an update
     of the default values, check:
     - The default param value constants in this test are up to date.
-    - The default param values in the pre_gen_project.py hook are up to date.
     - The default param values in databricks_template_schema.json are up to date.
     """
     context = {

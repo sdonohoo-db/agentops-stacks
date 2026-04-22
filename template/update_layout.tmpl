@@ -18,7 +18,6 @@
 # Skip removed model serving, Dash chatbot, and agent_deployment (replaced by agent-in-app)
 {{ skip (printf `%s/%s` $root_dir `agent_deployment`) }}
 {{ skip (printf `%s/%s` $root_dir `resources/app-deployment-resource.yml`) }}
-{{ skip (printf `%s/%s` $root_dir `tests/integration/model_serving_test.py`) }}
 
 # Skip data preparation pipeline (add back if your agent needs vector search / RAG)
 {{ skip (printf `%s/%s` $root_dir `data_preparation`) }}
