@@ -1,22 +1,55 @@
-image: databricksfieldeng/mlopsstacks:latest
+# Prod deploy for {{ .input_project_name }} — validates, deploys, runs eval gate and governance check if applied.
+default:
+  image: python:3.11-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+    - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/{{template `cli_version` .}}/install.sh | sh
 
-deploy-production:
+variables:
+  {{ if (eq .input_cloud `azure`) -}}
+  ARM_TENANT_ID: "${PROD_AZURE_SP_TENANT_ID}"
+  ARM_CLIENT_ID: "${PROD_AZURE_SP_APPLICATION_ID}"
+  ARM_CLIENT_SECRET: "${PROD_AZURE_SP_CLIENT_SECRET}"
+  {{ else -}}
+  DATABRICKS_TOKEN: "${PROD_WORKSPACE_TOKEN}"
+  {{- end }}
+
+stages:
+  - deploy
+
+deploy_prod:
   stage: deploy
   environment: production
-  variables:
-    DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
-    DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
   script:
-    - cd .
     - databricks bundle validate -t prod
     - databricks bundle deploy -t prod
-    # Run all app resources to deploy source and start them
-    - |
-      APP_KEYS=$(databricks bundle summary -t prod -o json \
-        | python3 -c "import sys,json; apps=json.load(sys.stdin).get('resources',{}).get('apps',{}); [print(k) for k in apps]" 2>/dev/null) || true
-      for app_key in $APP_KEYS; do
-        echo "Starting app: $app_key"
-        databricks bundle run "$app_key" -t prod
-      done
+
+eval_gate:
+  stage: deploy
+  needs: [deploy_prod]
   rules:
-    - when: on_success
+    - exists:
+        - evaluation/thresholds.yml
+  script:
+    - pip install uv
+    - uv sync
+    - |
+      if [ -f evaluation/gate.py ]; then
+        uv run python evaluation/gate.py
+      else
+        echo "evaluation/thresholds.yml exists but evaluation/gate.py is missing." >&2
+        exit 1
+      fi
+
+governance_check:
+  stage: deploy
+  needs: [deploy_prod]
+  rules:
+    - exists:
+        - governance/posture.md
+  script:
+    - |
+      if [ ! -s governance/posture.md ]; then
+        echo "governance/posture.md exists but is empty." >&2
+        exit 1
+      fi

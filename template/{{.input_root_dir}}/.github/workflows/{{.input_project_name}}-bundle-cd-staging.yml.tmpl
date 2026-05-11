@@ -1,4 +1,5 @@
-name: Bundle Deployment for {{ .input_project_name }} Staging
+# Staging deploy for {{ .input_project_name }} — validates, deploys, runs post-deploy eval gate if applied.
+name: Staging deploy for {{ .input_project_name }}
 
 on:
   push:
@@ -20,27 +21,32 @@ env:
   {{- end }}
 
 jobs:
-  staging:
+  deploy:
     concurrency: {{ .input_project_name }}-staging-bundle-job
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@{{template `cli_version` .}}
-      - name: Validate Bundle For Staging
-        id: validate
+      - name: Validate bundle for staging
+        run: databricks bundle validate -t staging
+      - name: Deploy bundle to staging
+        run: databricks bundle deploy -t staging
+
+  eval_gate:
+    needs: deploy
+    if: hashFiles('evaluation/thresholds.yml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Run eval gate (post-deploy)
         run: |
-          databricks bundle validate -t staging
-      - name: Deploy Bundle to Staging
-        id: deploy
-        run: |
-          databricks bundle deploy -t staging
-      - name: Start Apps in Staging
-        id: start_apps
-        run: |
-          # Run all app resources to deploy source and start them
-          APP_KEYS=$(databricks bundle summary -t staging -o json \
-            | python3 -c "import sys,json; apps=json.load(sys.stdin).get('resources',{}).get('apps',{}); [print(k) for k in apps]" 2>/dev/null) || true
-          for app_key in $APP_KEYS; do
-            echo "Starting app: $app_key"
-            databricks bundle run "$app_key" -t staging
-          done
+          if [ -f evaluation/gate.py ]; then
+            uv run python evaluation/gate.py
+          else
+            echo "::error::evaluation/thresholds.yml exists but evaluation/gate.py is missing."
+            exit 1
+          fi

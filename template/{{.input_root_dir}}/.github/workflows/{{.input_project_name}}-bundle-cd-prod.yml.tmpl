@@ -1,9 +1,10 @@
-name: Bundle Deployment for {{ .input_project_name }} Prod
+# Prod deploy for {{ .input_project_name }} — validates, deploys, runs eval gate and governance check if applied.
+name: Prod deploy for {{ .input_project_name }}
 
 on:
   push:
-    branches:
-      - 'release'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 defaults:
@@ -20,27 +21,46 @@ env:
   {{- end }}
 
 jobs:
-  prod:
+  deploy:
     concurrency: {{ .input_project_name }}-prod-bundle-job
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: databricks/setup-cli@{{template `cli_version` .}}
-      - name: Validate Bundle For Prod
-        id: validate
+      - name: Validate bundle for prod
+        run: databricks bundle validate -t prod
+      - name: Deploy bundle to prod
+        run: databricks bundle deploy -t prod
+
+  eval_gate:
+    needs: deploy
+    if: hashFiles('evaluation/thresholds.yml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Run eval gate (post-deploy)
         run: |
-          databricks bundle validate -t prod
-      - name: Deploy Bundle to Prod
-        id: deploy
+          if [ -f evaluation/gate.py ]; then
+            uv run python evaluation/gate.py
+          else
+            echo "::error::evaluation/thresholds.yml exists but evaluation/gate.py is missing."
+            exit 1
+          fi
+
+  governance_check:
+    needs: deploy
+    if: hashFiles('governance/posture.md') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify governance posture documented
         run: |
-          databricks bundle deploy -t prod
-      - name: Start Apps in Prod
-        id: start_apps
-        run: |
-          # Run all app resources to deploy source and start them
-          APP_KEYS=$(databricks bundle summary -t prod -o json \
-            | python3 -c "import sys,json; apps=json.load(sys.stdin).get('resources',{}).get('apps',{}); [print(k) for k in apps]" 2>/dev/null) || true
-          for app_key in $APP_KEYS; do
-            echo "Starting app: $app_key"
-            databricks bundle run "$app_key" -t prod
-          done
+          if [ ! -s governance/posture.md ]; then
+            echo "::error::governance/posture.md exists but is empty."
+            exit 1
+          fi
+          # Stricter checks will land when the plugin's /audit-governance pattern is defined.

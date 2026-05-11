@@ -1,8 +1,6 @@
 stages:
   - triggers
 
-image: databricksfieldeng/mlopsstacks:latest
-
 trigger_ci:
   stage: triggers
   trigger:
@@ -11,10 +9,8 @@ trigger_ci:
     strategy: depend
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main'
-      changes:
-        - '*'
 
-trigger_cd_stage:
+trigger_cd_staging:
   stage: triggers
   trigger:
     include:
@@ -23,11 +19,11 @@ trigger_cd_stage:
   rules:
     - if: $CI_COMMIT_BRANCH == 'main'
 
-trigger_cd_production:
+trigger_cd_prod:
   stage: triggers
   trigger:
     include:
       - local: .gitlab/pipelines/{{.input_project_name}}-bundle-cd-prod.yml
     strategy: depend
   rules:
-    - if: $CI_COMMIT_BRANCH == 'release'
+    - if: $CI_COMMIT_TAG =~ /^v/

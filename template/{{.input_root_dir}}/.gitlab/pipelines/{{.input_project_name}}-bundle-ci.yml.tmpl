@@ -1,23 +1,52 @@
-image: databricksfieldeng/mlopsstacks:latest
+# PR checks for {{ .input_project_name }} — unit tests, bundle validation, conditional eval gate.
+default:
+  image: python:3.11-slim
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+    - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/{{template `cli_version` .}}/install.sh | sh
 
-unit-test:
+variables:
+  {{ if (eq .input_cloud `azure`) -}}
+  ARM_TENANT_ID: "${STAGING_AZURE_SP_TENANT_ID}"
+  ARM_CLIENT_ID: "${STAGING_AZURE_SP_APPLICATION_ID}"
+  ARM_CLIENT_SECRET: "${STAGING_AZURE_SP_CLIENT_SECRET}"
+  {{ else -}}
+  DATABRICKS_TOKEN: "${STAGING_WORKSPACE_TOKEN}"
+  {{- end }}
+
+stages:
+  - test
+
+unit_tests:
   stage: test
   script:
-    - python3 --version
-    - pip --version
-    - pytest --junitxml=test-unit.xml
-  rules:
-    - when: on_success
+    - pip install uv
+    - uv sync
+    - uv run pytest --junitxml=test-unit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: test-unit.xml
 
-integration-test:
+validate_bundle:
   stage: test
-  environment: dev
-  variables:
-    DATABRICKS_CLIENT_ID: "${SP_CLIENT_ID}"
-    DATABRICKS_CLIENT_SECRET: "${SP_CLIENT_SECRET}"
   script:
-    - cd .
-    - databricks bundle validate -t test
-    - databricks bundle deploy -t test
+    - databricks bundle validate -t staging
+
+eval_gate:
+  stage: test
+  needs: [validate_bundle]
   rules:
-    - when: on_success
+    - exists:
+        - evaluation/thresholds.yml
+  script:
+    - pip install uv
+    - uv sync
+    - |
+      if [ -f evaluation/gate.py ]; then
+        uv run python evaluation/gate.py
+      else
+        echo "evaluation/thresholds.yml exists but evaluation/gate.py is missing." >&2
+        echo "Apply the full eval-gate pattern (plugin: /add-eval-gate)." >&2
+        exit 1
+      fi
