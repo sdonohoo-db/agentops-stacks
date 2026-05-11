@@ -1,8 +1,6 @@
 bundle:
   name: {{ .input_project_name }}
   engine: direct
-  tags:
-    project: {{ .input_project_name }}
 
 variables:
   catalog:
@@ -33,8 +31,12 @@ targets:
       host: # TODO: set staging workspace URL
     variables:
       catalog: {{ .input_project_name }}_staging
+    # Production mode requires run_as. Default to the deploying user; switch to a
+    # service principal before going to real production:
+    #   run_as:
+    #     service_principal_name: <sp-application-id>
     run_as:
-      service_principal_name: # TODO: set staging service principal
+      user_name: ${workspace.current_user.userName}
 
   prod:
     mode: production
@@ -42,5 +44,9 @@ targets:
       host: # TODO: set prod workspace URL
     variables:
       catalog: {{ .input_project_name }}_prod
+    # Production mode requires run_as. Default to the deploying user; switch to a
+    # service principal before going to real production:
+    #   run_as:
+    #     service_principal_name: <sp-application-id>
     run_as:
-      service_principal_name: # TODO: set prod service principal
+      user_name: ${workspace.current_user.userName}
