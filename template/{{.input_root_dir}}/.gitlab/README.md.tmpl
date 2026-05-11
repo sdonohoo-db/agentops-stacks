@@ -1,26 +1,28 @@
 # CI/CD — GitLab Pipelines
 
-This directory contains GitLab pipeline definitions for validating and deploying your agent project as a Databricks Asset Bundle.
+GitLab pipeline definitions for validating and deploying **{{ .input_project_name }}** as a Databricks Asset Bundle.
 
 ## Pipelines
 
-Pipeline files are under `pipelines/`. The main trigger file is `{{ .input_project_name }}-triggers-cicd.yml`.
+Pipeline files live under `pipelines/`. The entry point is `{{ .input_project_name }}-triggers-cicd.yml` — set GitLab's CI/CD config file to this path.
 
-| Stage | Trigger | What it does |
-|-------|---------|-------------|
-| CI | PR to `main` | Validates bundle config, runs unit and integration tests |
-| CD (staging) | Merge to `main` | Deploys bundle to staging workspace |
-| CD (prod) | Merge to `release` | Deploys bundle to prod workspace |
+| Pipeline | Trigger | What it does |
+|----------|---------|-------------|
+| CI | Merge request to `main` | Unit tests, bundle validate (staging), conditional eval gate |
+| CD (staging) | Push to `main` | Deploy to staging + post-deploy eval gate |
+| CD (prod) | Tag matching `v*` | Deploy to prod + eval gate + governance check |
 
 ## Setup
 
-1. Create service principals for staging and prod workspaces
-2. Set up GitLab environments (`integration`, `stage`, `production`)
-3. Add `SP_CLIENT_ID` and `SP_CLIENT_SECRET` as CI/CD variables scoped to each environment
-4. Set the CI/CD configuration file path to `.gitlab/pipelines/{{ .input_project_name }}-triggers-cicd.yml`
+1. Create service principals for staging and prod workspaces and grant them the Unity Catalog permissions listed in the project README.
+2. In GitLab → Settings → CI/CD → Variables, add the auth credentials scoped to the staging and production environments:
+   - **Azure:** `STAGING_AZURE_SP_TENANT_ID`, `STAGING_AZURE_SP_APPLICATION_ID`, `STAGING_AZURE_SP_CLIENT_SECRET` (and prod equivalents)
+   - **AWS / GCP:** `STAGING_WORKSPACE_TOKEN`, `PROD_WORKSPACE_TOKEN`
+3. Define GitLab environments (`staging`, `production`) so deploys can be approval-gated if desired.
+4. In Settings → CI/CD → General pipelines → CI/CD configuration file, set the path to `.gitlab/pipelines/{{ .input_project_name }}-triggers-cicd.yml`.
 
-## Docker image
+## Runtime
 
-Pipelines run on `databricksfieldeng/mlopsstacks:latest` by default. Build a custom image from `docker/` if needed, and update the `image:` line in each pipeline YAML.
+Pipelines run on `python:3.11-slim` with the Databricks CLI installed in `before_script`. No custom image required.
 
-For details, see the [README](../../README.md).
+For project-level setup details, see the [project README](../../README.md).

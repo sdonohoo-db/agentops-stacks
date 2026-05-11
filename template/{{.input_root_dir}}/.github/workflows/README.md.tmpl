@@ -1,26 +1,25 @@
 # CI/CD — GitHub Actions
 
-This directory contains GitHub Actions workflows for validating and deploying your agent project as a Databricks Asset Bundle.
+GitHub Actions workflows for validating and deploying **{{ .input_project_name }}** as a Databricks Asset Bundle.
 
 ## Workflows
 
 | File | Trigger | What it does |
 |------|---------|-------------|
-| `{{ .input_project_name }}-bundle-cicd.yml` | PR to `main`, merge to `main`, merge to `release` | Validates bundle config (CI), deploys to staging (CD on main merge), deploys to prod (CD on release merge) |
-| `{{ .input_project_name }}-tests-ci.yml` | PR to `main` | Runs unit and integration tests |
+| `{{ .input_project_name }}-bundle-ci.yml` | Pull request | Unit tests, bundle validate (staging), conditional eval gate |
+| `{{ .input_project_name }}-bundle-cd-staging.yml` | Push to `main` | Validate + deploy to staging + post-deploy eval gate |
+| `{{ .input_project_name }}-bundle-cd-prod.yml` | Tag matching `v*` | Validate + deploy to prod + eval gate + governance check |
 
 ## Setup
 
-1. Create service principals for staging and prod workspaces
-2. Add required secrets to your GitHub repo (see [README](../../README.md))
-3. Enable "Read and write permissions" under Repo Settings > Actions > General > Workflow permissions
+1. Create service principals for staging and prod workspaces and grant them the Unity Catalog permissions listed in the project README.
+2. Add repository secrets:
+   - **Azure:** `STAGING_AZURE_SP_TENANT_ID`, `STAGING_AZURE_SP_APPLICATION_ID`, `STAGING_AZURE_SP_CLIENT_SECRET` (and prod equivalents)
+   - **AWS / GCP:** `STAGING_WORKSPACE_TOKEN`, `PROD_WORKSPACE_TOKEN`
+3. Under Repo Settings → Actions → General → Workflow permissions, enable read + write so the eval-gate job can comment on PRs if you extend it to do so.
 
-## Pipeline flow
+## Conditional jobs
 
-```
-PR to main  →  validate bundle (staging + prod) + run tests
-Merge to main  →  deploy to staging
-Merge to release  →  deploy to prod
-```
+The `eval_gate` and `governance_check` jobs use `hashFiles()` to detect the presence of `evaluation/thresholds.yml` and `governance/posture.md` respectively. They skip when those files aren't present — so the bare scaffold's pipelines run cleanly until you apply the eval and governance patterns.
 
-For details, see the [README](../../README.md).
+For project-level setup details, see the [project README](../../README.md).
