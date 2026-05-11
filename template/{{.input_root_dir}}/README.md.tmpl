@@ -17,15 +17,9 @@ The deploying user or service principal needs the following grants on each envir
 
 The catalog itself must exist before the first deploy — catalog creation is admin-scoped and not handled by this bundle. Default catalog names: `{{ .input_project_name }}_dev`, `{{ .input_project_name }}_staging`, `{{ .input_project_name }}_prod`.
 
-### CLI profiles
+### Authentication
 
-Each environment uses a separate Databricks CLI profile, expected in `~/.databrickscfg`:
-
-- `{{ .input_project_name }}-dev`
-- `{{ .input_project_name }}-staging`
-- `{{ .input_project_name }}-prod`
-
-Any other auth method DAB supports (env vars, OAuth, service principals) also works.
+Choose any auth method DAB supports — `~/.databrickscfg` profiles, OAuth, env vars, or service principal credentials. If you use profiles, select one at deploy time via `--profile`, the `DATABRICKS_CONFIG_PROFILE` env var, or by adding `profile: <name>` to each target in `databricks.yml`.
 
 ## Setup
 

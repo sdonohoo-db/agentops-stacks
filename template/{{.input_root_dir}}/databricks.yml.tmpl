@@ -10,10 +10,6 @@ variables:
   schema:
     description: Schema within the catalog for resources, traces, and artifacts
     default: {{ .input_project_name }}
-  warehouse_id:
-    description: SQL warehouse for ad-hoc queries
-    lookup:
-      warehouse: "Serverless Starter Warehouse"
 
 include:
   - ./resources/*.yml
@@ -28,7 +24,6 @@ targets:
     mode: development
     workspace:
       host: # TODO: set dev workspace URL
-      profile: {{ .input_project_name }}-dev
     variables:
       catalog: {{ .input_project_name }}_dev
 
@@ -36,7 +31,6 @@ targets:
     mode: production
     workspace:
       host: # TODO: set staging workspace URL
-      profile: {{ .input_project_name }}-staging
     variables:
       catalog: {{ .input_project_name }}_staging
     run_as:
@@ -46,7 +40,6 @@ targets:
     mode: production
     workspace:
       host: # TODO: set prod workspace URL
-      profile: {{ .input_project_name }}-prod
     variables:
       catalog: {{ .input_project_name }}_prod
     run_as:
