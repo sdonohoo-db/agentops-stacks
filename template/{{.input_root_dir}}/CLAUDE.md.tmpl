@@ -1,0 +1,75 @@
+# {{ .input_project_name }}
+
+This is an AgentOps Stacks v2 project. Use this file to give coding assistants project-specific guidance — conventions to follow, tools to use, patterns that matter.
+
+## Project structure
+
+- **`src/`** — your AI solution code lives here. Suggested subdirs by convention (not enforced):
+  - `src/apps/` — Databricks Apps (chat UI, tool serving, etc.)
+  - `src/notebooks/` — Databricks notebooks
+  - `src/mcp/` — MCP server implementations
+  - `src/jobs/` — code for scheduled jobs and pipelines
+- **`resources/`** — DAB resource declarations (YAML). One file per concern. Use the `databricks-bundles` skill (ai-dev-kit) for help authoring resources.
+- **`tests/`** — pytest tests. `databricks-connect` is a dev dep — use it to run against a remote cluster locally.
+- **`docs/`** — project-specific documentation.
+- **`.agentops-stacks/`** — agentops-stacks plugin metadata; do not edit by hand.
+
+## Unity Catalog conventions
+
+This project uses one catalog per environment, with a single schema per catalog:
+
+- dev → `{{ .input_project_name }}_dev.{{ .input_project_name }}`
+- staging → `{{ .input_project_name }}_staging.{{ .input_project_name }}`
+- prod → `{{ .input_project_name }}_prod.{{ .input_project_name }}`
+
+The schema holds all UC resources for the project: traces, models, artifacts, datasets.
+
+Reference UC resources in code using values resolved from the bundle target:
+
+```python
+catalog = os.environ["DATABRICKS_CATALOG"]  # set per-env via DAB or your runtime
+schema = "{{ .input_project_name }}"
+table = f"{catalog}.{schema}.my_table"
+```
+
+## MLflow 3 conventions
+
+MLflow 3's default registry URI is `databricks-uc`. Model registration is automatically UC-managed:
+
+```python
+import mlflow
+mlflow.register_model(model_uri, name=f"{catalog}.{schema}.my_model")
+```
+
+### Trace storage in Unity Catalog (recommended)
+
+Configure traces to land in UC tables:
+
+```python
+mlflow.set_experiment(
+    name=f"/Shared/{{ .input_project_name }}/{env}",
+    location_url=f"{catalog}.{schema}.traces",
+)
+```
+
+### Experiment artifacts
+
+Artifacts are logged to the UC volume defined in `resources/volumes.yml` automatically — no code changes needed beyond setting the experiment.
+
+## What this scaffold does NOT include
+
+Eval gates, governance docs, and monitoring config are **not** pre-installed. Add them when the solution is ready:
+
+- **Evaluation** — add `evaluation/thresholds.yml` plus dataset/scorer files; CI gates promotion on them
+- **Governance** — add `governance/posture.md` (DASF mapping) and `governance/data_flows.md`; prod promotion checks for presence
+- **Monitoring** — added per-resource as needed
+
+The agentops-stacks plugin provides interactive commands to apply each pattern. Without the plugin, follow the conventions documented here.
+
+## Coding assistant guidance
+
+- Don't add Databricks resources that bypass the project's UC variables (`${var.catalog}`, `${var.schema}`).
+- Don't add inline secrets to `databricks.yml` or workflow files; use Databricks secret scopes or platform secret stores.
+- Production code must not use user-scoped paths like `/Users/...` — DAB production mode rejects them.
+- Prefer YAML resource definitions over Python (pydabs) unless there's a specific reason. Keeps things readable.
+- Defer to ai-dev-kit's `databricks-bundles` skill when authoring new DAB resources.

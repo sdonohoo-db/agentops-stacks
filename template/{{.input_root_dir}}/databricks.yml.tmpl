@@ -1,38 +1,53 @@
 bundle:
   name: {{ .input_project_name }}
   engine: direct
+  tags:
+    project: {{ .input_project_name }}
 
-resources:
-  experiments:
-    {{template `project_name_alphanumeric_underscore` .}}_experiment:
-      name: /Users/${workspace.current_user.userName}/{{ .input_project_name }}
+variables:
+  catalog:
+    description: Unity Catalog for project resources (overridden per target)
+  schema:
+    description: Schema within the catalog for resources, traces, and artifacts
+    default: {{ .input_project_name }}
+  warehouse_id:
+    description: SQL warehouse for ad-hoc queries
+    lookup:
+      warehouse: "Serverless Starter Warehouse"
 
-# Auto-discover resource definitions added by setup or components
 include:
   - ./resources/*.yml
 
 sync:
   include:
-    - scripts/**
     - pyproject.toml
-    - .env.example
 
 targets:
   dev:
     default: true
     mode: development
     workspace:
-      host: # TODO: set your dev workspace URL
+      host: # TODO: set dev workspace URL
+      profile: {{ .input_project_name }}-dev
+    variables:
+      catalog: {{ .input_project_name }}_dev
 
   staging:
+    mode: production
     workspace:
-      host: # TODO: set your staging workspace URL
+      host: # TODO: set staging workspace URL
+      profile: {{ .input_project_name }}-staging
+    variables:
+      catalog: {{ .input_project_name }}_staging
+    run_as:
+      service_principal_name: # TODO: set staging service principal
 
   prod:
     mode: production
     workspace:
-      host: # TODO: set your prod workspace URL
-
-  test:
-    workspace:
-      host: # TODO: set your test workspace URL (often same as staging)
+      host: # TODO: set prod workspace URL
+      profile: {{ .input_project_name }}-prod
+    variables:
+      catalog: {{ .input_project_name }}_prod
+    run_as:
+      service_principal_name: # TODO: set prod service principal

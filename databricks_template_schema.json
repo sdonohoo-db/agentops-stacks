@@ -1,63 +1,35 @@
 {
-  "welcome_message": "Welcome to AgentOps Stacks. This template creates a Databricks Asset Bundle for AI agent projects.\nAfter initialization, run 'uv run setup' to select and install your agent framework.",
+  "welcome_message": "Welcome to AgentOps Stacks v2 — a Databricks Asset Bundle template for production-ready AI projects.\n\nThis template generates the scaffold and CI/CD wiring for any AI solution. After init, develop your solution under src/ and use the agentops-stacks plugin (or your coding assistant) to apply evaluation, governance, and promotion patterns.",
   "min_databricks_cli_version": "v0.288.0",
   "properties": {
-    "input_setup_cicd_and_project": {
+    "input_project_name": {
       "order": 1,
       "type": "string",
-      "description": "{{if false}}\n\nERROR: This template is not supported by your current Databricks CLI version.\nPlease hit control-C and go to https://docs.databricks.com/en/dev-tools/cli/install.html for instructions on upgrading the CLI to the minimum version supported by AgentOps Stacks.\n\n{{end}}\nSelect if both CI/CD and the Project should be set up, or only one of them.\nYou can always set up the other later by running initialization again",
-      "default": "CICD_and_Project",
-      "enum": ["CICD_and_Project", "Project_Only", "CICD_Only"]
-    },
-    "input_project_name": {
-      "order": 2,
-      "type": "string",
       "default": "my_agentops_project",
-      "description": "\nProject Name. Default",
-      "pattern": "^[^ .\\\\/]{3,}$",
-      "pattern_match_failure_message": "Project name must be at least 3 characters long and cannot contain the following characters: \"\\\", \"/\", \" \" and \".\".",
-      "skip_prompt_if": {
-        "properties": {
-          "input_setup_cicd_and_project": {
-            "const": "CICD_Only"
-          }
-        }
-      }
+      "description": "\nProject name. Used as the bundle name, default catalog suffix, and root directory name.",
+      "pattern": "^[a-z][a-z0-9_]{2,}$",
+      "pattern_match_failure_message": "Project name must start with a lowercase letter and contain only lowercase letters, digits, and underscores (min 3 chars)."
     },
     "input_root_dir": {
-      "order": 3,
+      "order": 2,
       "type": "string",
       "default": "{{ .input_project_name }}",
-      "description": "\nRoot directory name.\nDefault",
-      "skip_prompt_if": {
-        "properties": {
-          "input_setup_cicd_and_project": {
-            "const": "CICD_and_Project"
-          }
-        }
-      }
+      "description": "\nRoot directory name."
     },
     "input_cloud": {
-      "order": 4,
+      "order": 3,
       "type": "string",
-      "description": "\nSelect cloud",
-      "default": "azure",
-      "enum": ["azure", "aws", "gcp"]
+      "description": "\nCloud provider for the workspace. Determines CI/CD auth blocks.",
+      "default": "aws",
+      "enum": ["aws", "azure", "gcp"]
     },
     "input_cicd_platform": {
-      "order": 5,
+      "order": 4,
       "type": "string",
-      "description": "\nSelect CI/CD platform",
+      "description": "\nCI/CD platform for promotion workflows.",
       "default": "github_actions",
-      "enum": ["github_actions", "github_actions_for_github_enterprise_servers", "azure_devops", "gitlab"],
-      "skip_prompt_if": {
-        "properties": {
-          "input_setup_cicd_and_project": {
-            "const": "Project_Only"
-          }
-        }
-      }
+      "enum": ["github_actions", "github_actions_for_github_enterprise_servers", "azure_devops", "gitlab"]
     }
   },
-  "success_message": "\n*** Your AgentOps Stack has been created in the '{{.input_root_dir}}' directory. ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. uv run setup          # Select and install your agent framework"
+  "success_message": "\n*** AgentOps Stacks v2 project created in '{{.input_root_dir}}' ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. Review .agentops-stacks/manifest.yml and databricks.yml\n  3. Set workspace hosts and Unity Catalog grants (see README)\n  4. uv sync\n  5. databricks bundle validate -t dev"
 }
