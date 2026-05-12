@@ -21,7 +21,7 @@ v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in deve
 
 ## Prerequisites
 
-- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.288.0 or later
+- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.295.0 or later
 - [uv](https://docs.astral.sh/uv/) package manager
 - A Databricks workspace with Unity Catalog enabled (one catalog per environment — see `template/{{.input_root_dir}}/docs/setup.md.tmpl`)
 

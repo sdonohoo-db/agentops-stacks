@@ -1,6 +1,6 @@
 {
   "welcome_message": "Welcome to AgentOps Stacks v2 — a Databricks Asset Bundle template for production-ready AI projects.\n\nThis template generates the scaffold and CI/CD wiring for any AI solution. After init, develop your solution under src/ and use the agentops-stacks plugin (or your coding assistant) to apply evaluation, governance, and promotion patterns.",
-  "min_databricks_cli_version": "v0.288.0",
+  "min_databricks_cli_version": "v0.295.0",
   "properties": {
     "input_project_name": {
       "order": 1,
