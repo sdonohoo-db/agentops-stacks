@@ -49,7 +49,7 @@ Evaluation, governance, and monitoring aren't pre-installed — they're applied 
 v2 is a simplified, dual-channel rework:
 
 - **DAB template** (this repo) — canonical, pure-CLI scaffold. Generates the same project shape from any environment that runs `databricks bundle init`.
-- **agentops-stacks Claude Code plugin** (planned) — resident copilot for authoring and adopting projects, applying production patterns interactively. Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`).
+- **agentops-stacks plugin** (planned) — portable resident copilot for authoring and adopting projects, applying production patterns interactively. Works across Claude Code, Cursor, and Genie Code. Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`).
 
 The template stands on its own — no plugin required.
 
