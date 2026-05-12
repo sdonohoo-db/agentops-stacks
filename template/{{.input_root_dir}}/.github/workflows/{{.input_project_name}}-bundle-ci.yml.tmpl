@@ -40,7 +40,7 @@ jobs:
 
   eval_gate:
     needs: validate_bundle
-    if: hashFiles('evaluation/thresholds.yml') != ''
+    if: ${{ hashFiles('evaluation/thresholds.yml') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

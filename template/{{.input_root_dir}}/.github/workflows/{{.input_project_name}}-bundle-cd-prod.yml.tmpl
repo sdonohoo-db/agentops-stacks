@@ -34,7 +34,7 @@ jobs:
 
   eval_gate:
     needs: deploy
-    if: hashFiles('evaluation/thresholds.yml') != ''
+    if: ${{ hashFiles('evaluation/thresholds.yml') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
 
   governance_check:
     needs: deploy
-    if: hashFiles('governance/posture.md') != ''
+    if: ${{ hashFiles('governance/posture.md') != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
