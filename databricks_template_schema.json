@@ -31,5 +31,5 @@
       "enum": ["github_actions", "github_actions_for_github_enterprise_servers", "azure_devops", "gitlab"]
     }
   },
-  "success_message": "\n*** AgentOps Stacks v2 project created in '{{.input_root_dir}}' ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. Review .agentops-stacks/manifest.yml and databricks.yml\n  3. Set workspace hosts and Unity Catalog grants (see README)\n  4. uv sync\n  5. databricks bundle validate -t dev"
+  "success_message": "\n*** AgentOps Stacks v2 project created in '{{.input_root_dir}}' ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. Review .agentops-stacks/manifest.yml and databricks.yml\n  3. Set workspace hosts and Unity Catalog grants (see docs/setup.md)\n  4. uv sync\n  5. databricks bundle validate -t dev"
 }

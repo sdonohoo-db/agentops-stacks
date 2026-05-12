@@ -13,8 +13,8 @@ You'll be prompted for project name, cloud, and CI/CD platform. After init:
 ```bash
 cd <project_name>
 uv sync
-databricks bundle validate -t dev
-databricks bundle deploy -t dev
+databricks bundle validate -t dev --profile <dev-profile>
+databricks bundle deploy -t dev --profile <dev-profile>
 ```
 
 v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in development. The `--branch` flag drops once v2 lands on `databricks-solutions/agentops-stacks` main.
