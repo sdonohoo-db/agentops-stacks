@@ -78,22 +78,30 @@ GRANT CREATE VOLUME ON SCHEMA {{ .input_project_name }}_<env>.{{ .input_project_
 Production-mode targets in `databricks.yml` use `run_as` to define who the bundle's resources execute as. The default is the deploying user (you), which is fine for getting started but not for real production.
 
 {{ if (eq .input_cloud `azure`) -}}
-For Azure:
+For Azure, create one SP per environment that needs an automated deployer (staging and prod):
 
-1. In the Azure portal → Azure Active Directory → App registrations → New registration. Create one app for staging and one for prod.
-2. For each app, generate a client secret under Certificates & secrets. Save the Application (client) ID, Directory (tenant) ID, and client secret value — you'll add these to CI/CD secrets later.
-3. In each Databricks workspace, add the Azure service principal as a workspace user (Account Console → User Management → Service Principals → Add) and grant it the Unity Catalog permissions from step 2b.
-4. Update `databricks.yml` to reference the SP in `run_as`:
+**Option A — Azure CLI** (fastest):
 
-   ```yaml
-   targets:
-     staging:
-       run_as:
-         service_principal_name: <staging-app-id>
-     prod:
-       run_as:
-         service_principal_name: <prod-app-id>
-   ```
+```bash
+az ad sp create-for-rbac --name {{ .input_project_name }}-staging-sp --skip-assignment
+az ad sp create-for-rbac --name {{ .input_project_name }}-prod-sp --skip-assignment
+```
+
+Each command prints `appId`, `password`, and `tenant` — save all three for each SP. You'll use them for `run_as` and CI/CD secrets. `--skip-assignment` avoids granting Azure subscription roles; the SP only needs Databricks workspace access (granted below).
+
+**Option B — Azure portal**: Azure Active Directory → App registrations → New registration. For each app, generate a client secret under Certificates & secrets. Save the Application (client) ID, Directory (tenant) ID, and secret value.
+
+After creating each SP, update `databricks.yml` to reference it in `run_as`:
+
+```yaml
+targets:
+  staging:
+    run_as:
+      service_principal_name: <staging-app-id>
+  prod:
+    run_as:
+      service_principal_name: <prod-app-id>
+```
 {{ else if (eq .input_cloud `aws`) -}}
 For AWS:
 
@@ -129,6 +137,21 @@ For GCP:
          service_principal_name: <prod-sp-application-id>
    ```
 {{- end }}
+
+### 2d. Grant each SP workspace and `/Shared/` access
+
+After the SPs exist, they need to be wired into the corresponding workspaces. In **each workspace** (staging in the staging workspace, prod in the prod workspace), as a workspace admin:
+
+1. **Add the SP as a workspace service principal.** Admin Settings → Identity and access → Service principals → Add. Use the Application ID (from step 2c) as the SP's identifier. Grant **Workspace access: Can use**.
+2. **Grant `/Shared/` write access.** The bundle creates an MLflow experiment under `/Shared/`. The SP needs `Can Manage` on `/Shared/` to create the experiment. Workspace browser → `/Shared/` → ⋮ menu → Permissions → Add → select the SP → `Can Manage`.
+3. **Apply the Unity Catalog grants from step 2b**, substituting the SP's Application ID for `<identity>`. Use backticks around the Application ID in SQL:
+
+   ```sql
+   GRANT USE CATALOG ON CATALOG {{ .input_project_name }}_staging TO `<staging-app-id>`;
+   GRANT CREATE SCHEMA ON CATALOG {{ .input_project_name }}_staging TO `<staging-app-id>`;
+   ```
+
+Repeat for prod against the prod catalog and prod SP.
 
 ---
 
@@ -192,22 +215,40 @@ targets:
 {{ if (or (eq .input_cicd_platform `github_actions`) (eq .input_cicd_platform `github_actions_for_github_enterprise_servers`)) -}}
 ### GitHub Actions
 
-In the repository, go to **Settings → Secrets and variables → Actions** and add:
+Add the following secrets to the repository. Either via the UI — **Settings → Secrets and variables → Actions** — or via the GitHub CLI:
 
 {{ if (eq .input_cloud `azure`) -}}
 | Secret | Value |
 |---|---|
-| `STAGING_AZURE_SP_TENANT_ID` | Directory (tenant) ID of the staging app registration |
-| `STAGING_AZURE_SP_APPLICATION_ID` | Application (client) ID of the staging app registration |
-| `STAGING_AZURE_SP_CLIENT_SECRET` | Client secret value for the staging app |
-| `PROD_AZURE_SP_TENANT_ID` | Tenant ID for the prod app registration |
-| `PROD_AZURE_SP_APPLICATION_ID` | Application ID for the prod app registration |
-| `PROD_AZURE_SP_CLIENT_SECRET` | Client secret value for the prod app |
+| `STAGING_AZURE_SP_TENANT_ID` | Tenant ID of the staging SP |
+| `STAGING_AZURE_SP_APPLICATION_ID` | Application (client) ID of the staging SP |
+| `STAGING_AZURE_SP_CLIENT_SECRET` | Client secret for the staging SP |
+| `PROD_AZURE_SP_TENANT_ID` | Tenant ID of the prod SP |
+| `PROD_AZURE_SP_APPLICATION_ID` | Application ID of the prod SP |
+| `PROD_AZURE_SP_CLIENT_SECRET` | Client secret for the prod SP |
+
+Via `gh` CLI (replace `<org>/<repo>` with your repo):
+
+```bash
+gh secret set STAGING_AZURE_SP_TENANT_ID --repo <org>/<repo> --body "<tenant>"
+gh secret set STAGING_AZURE_SP_APPLICATION_ID --repo <org>/<repo> --body "<appId>"
+gh secret set STAGING_AZURE_SP_CLIENT_SECRET --repo <org>/<repo> --body "<password>"
+gh secret set PROD_AZURE_SP_TENANT_ID --repo <org>/<repo> --body "<tenant>"
+gh secret set PROD_AZURE_SP_APPLICATION_ID --repo <org>/<repo> --body "<appId>"
+gh secret set PROD_AZURE_SP_CLIENT_SECRET --repo <org>/<repo> --body "<password>"
+```
 {{ else -}}
 | Secret | Value |
 |---|---|
 | `STAGING_WORKSPACE_TOKEN` | Personal access token (or M2M OAuth token) for the staging workspace's service principal |
 | `PROD_WORKSPACE_TOKEN` | Personal access token (or M2M OAuth token) for the prod workspace's service principal |
+
+Via `gh` CLI:
+
+```bash
+gh secret set STAGING_WORKSPACE_TOKEN --repo <org>/<repo> --body "<token>"
+gh secret set PROD_WORKSPACE_TOKEN --repo <org>/<repo> --body "<token>"
+```
 {{- end }}
 
 Under **Settings → Actions → General → Workflow permissions**, enable "Read and write permissions" so jobs can comment on PRs if you extend the workflows to do so.
@@ -242,7 +283,7 @@ Under **Deployments → Environments**, create `staging` and `production` enviro
 {{ else if (eq .input_cicd_platform `azure_devops`) -}}
 ### Azure DevOps
 
-1. Create a **variable group** named `{{ .input_root_dir }} variable group` under **Pipelines → Library**. Add the following variables:
+1. Create a **variable group** named `{{ .input_root_dir }}` under **Pipelines → Library**. Add the following variables:
 
    {{ if (eq .input_cloud `azure`) -}}
    | Variable | Value | Mark secret |
@@ -295,3 +336,9 @@ After this, pushes to `main` deploy to staging via CI/CD, and tags matching `v*`
 **`run_as.service_principal_name not found`** — the SP must exist in the workspace as a service principal user (not just in the IdP). See section 2c.
 
 **Production mode rejected my deploy** — `mode: production` enforces that the bundle doesn't use user-scoped paths and that `run_as` is set. If you haven't set up service principals yet, change `run_as` to use your username temporarily, or deploy to dev only.
+
+**`Parent directory does not exist: /Shared/...`** — the MLflow experiment is being placed under a workspace folder that doesn't exist. The template uses a flat path (`/Shared/<bundle.name>_<bundle.target>`) to avoid this — if you customized the experiment `name` in `resources/experiment.yml` to a nested path, either create the parent folder in the workspace or revert to a single-level path.
+
+**`The experiment was created with a bad artifact location`** — the `artifact_location` in `resources/experiment.yml` must have an explicit URI scheme (`dbfs:/Volumes/...`), not just `/Volumes/...`. `bundle validate` accepts either; only deploy enforces the scheme.
+
+**CI error: `Unable to verify checksums signature: openpgp: key expired` during Terraform download** — your pinned Databricks CLI in CI is too old for `bundle: engine: direct` and is falling back to the Terraform engine. Bump `cli_version` in `library/template_variables.tmpl` to v0.295.0 or later.
