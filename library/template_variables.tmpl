@@ -1,9 +1,5 @@
 # define template variables
 
-{{ define `project_name_alphanumeric_underscore` -}}
-    {{- (regexp `-`).ReplaceAllString ((regexp `[^A-Za-z0-9_-]`).ReplaceAllString (print .input_project_name) ``) `_` -}}
-{{- end }}
-
 {{ define `cli_version` -}}
     v0.288.0
 {{- end }}
