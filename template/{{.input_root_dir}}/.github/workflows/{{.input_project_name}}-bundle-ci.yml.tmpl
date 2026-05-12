@@ -27,7 +27,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync
-      - run: uv run pytest
+      # Exit 5 from pytest means "no tests collected" — pass until the project adds tests.
+      - run: uv run pytest || [ $? -eq 5 ]
 
   validate_bundle:
     runs-on: ubuntu-latest

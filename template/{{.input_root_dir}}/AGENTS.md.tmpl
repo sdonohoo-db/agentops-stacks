@@ -8,11 +8,7 @@ An AgentOps Stacks v2 project: a Databricks Asset Bundle scaffold for production
 
 ## Project structure
 
-- **`src/`** — user's AI solution code. Suggested subdirs (convention, not enforced):
-  - `src/apps/` — Databricks Apps (chat UI, tool serving, etc.)
-  - `src/notebooks/` — Databricks notebooks
-  - `src/mcp/` — MCP server implementations
-  - `src/jobs/` — code for scheduled jobs and pipelines
+- **`src/`** — user's AI solution code. Organize however suits the project; the scaffold doesn't prescribe an internal layout.
 - **`resources/`** — DAB resource declarations (YAML). One file per concern. When adding a new resource (job, dashboard, app, pipeline, model serving, vector search), create a new YAML file here.
 - **`tests/`** — pytest tests. `databricks-connect` is available as a dev dep for running against a remote cluster.
 - **`docs/`** — project documentation. See `docs/setup.md` for the configuration guide.
@@ -89,7 +85,7 @@ Offer the user:
 
 1. **Verify configuration is complete.** Open `docs/setup.md` and confirm: UC catalogs exist, CLI profiles are configured, workspace hosts are filled in `databricks.yml`, CI/CD credentials are set up. Surface anything missing.
 2. **Help them validate.** Run `databricks bundle validate -t dev --profile <dev-profile>`. Resolve any errors.
-3. **Ask what they want to build.** The solution code goes in `src/`. Recommend a layout based on what they describe (agent app → `src/apps/`, MCP server → `src/mcp/`, etc.).
+3. **Ask what they want to build.** The solution code goes in `src/`.
 4. **Recommend the first production pattern.** Once they have working code, suggest adding eval gates (the lightest-weight production pattern and the one CI workflows are already wired for).
 
 ## Coding agent guidance
