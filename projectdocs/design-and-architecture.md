@@ -9,9 +9,9 @@ monitoring depth from redux.
 Implementation steps, milestones, and current status are in
 [implementation-plan.md](implementation-plan.md).
 
-The agentops-stacks repo has its own CLAUDE.md with the standing technical requirements
+The agentops-stacks repo has its own AGENTS.md with the standing technical requirements
 and validation instructions that govern code changes. Design priorities and architecture
-below are the reference the team validates against. The repo CLAUDE.md should stay
+below are the reference the team validates against. The repo AGENTS.md should stay
 aligned with this document.
 
 ## Design Priorities (in order)
