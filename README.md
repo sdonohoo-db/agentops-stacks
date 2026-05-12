@@ -1,167 +1,62 @@
-# AgentOps Stacks
+# agentops-stacks
 
-A Databricks Asset Bundle (DAB) template for AI agent and MCP server projects. Generates a project structure with CI/CD pipelines and deployment to Databricks Apps.
+A Databricks Asset Bundle (DAB) template that scaffolds production-ready AI projects on Databricks: dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms, and the hooks for evaluation, governance, and monitoring patterns. Build your solution under `src/` and apply production patterns as the project develops.
 
-## What You Get
-
-- **Component-based project assembly** — select from pre-built components (agent app, MCP server) or start with an empty DAB and add what you need
-- **Databricks App deployment** — agents run via MLflow AgentServer, MCP servers run via FastMCP, both deployed as Databricks Apps
-- **CI/CD workflows** — GitHub Actions, Azure DevOps, or GitLab pipelines for bundle validation and multi-environment deployment
-- **Multi-environment targets** — dev, staging, prod, and test configurations with eval-gated promotion (evaluation components coming soon)
-
-## Prerequisites
-
-- [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) v0.288.0 or later
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager
-- Python 3.11+
-- A Databricks workspace with Unity Catalog enabled
-
-## Quick Start
-
-### 1. Initialize the project
+## Quick start
 
 ```bash
-databricks bundle init https://github.com/databricks-solutions/agentops-stacks --branch agentops-stacks-rebase
+databricks bundle init https://github.com/sdonohoo-db/agentops-stacks --branch agentops-stacks-v2
 ```
 
-> While the component-based template lives on the `agentops-stacks-rebase` branch (PR pending), pass `--branch agentops-stacks-rebase` to select it. Drop the flag once the branch merges to `main`.
-
-You'll be asked about project name, cloud provider, CI/CD platform, and setup scope.
-
-### 2. Select a template
+You'll be prompted for project name, cloud, and CI/CD platform. After init:
 
 ```bash
-cd my_agentops_project
-uv run setup
-```
-
-The setup script presents a menu of available options:
-
-| Template | What it creates |
-|----------|----------------|
-| **Empty DAB** | Blank project scaffold — add components manually |
-| **Single Agent** | Agent app with MLflow AgentServer, experiment tracking, and `/test` route |
-| **Single MCP Server** | FastMCP server with tool registration, health check, and `/test` route |
-
-Additional agent framework templates (LangGraph, OpenAI Agents SDK, multi-agent) from [databricks/app-templates](https://github.com/databricks/app-templates) are listed in the menu and will be selectable in a future release.
-
-### 3. Configure your workspace
-
-Edit `databricks.yml` and set the `host:` URL for each target (dev, staging, prod).
-
-### 4. Deploy
-
-```bash
+cd <project_name>
+uv sync
 databricks bundle validate -t dev
 databricks bundle deploy -t dev
 ```
 
-## Project Structure
+v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in development. The `--branch` flag drops once v2 lands on `databricks-solutions/agentops-stacks` main.
 
-After selecting **Single Agent**:
+## Prerequisites
 
-```
-my_agentops_project/
-├── databricks.yml              # Bundle configuration and target environments
-├── app.yaml                    # Databricks App configuration
-├── pyproject.toml              # Python project and dependencies
-├── agent_server/               # Agent code
-│   ├── agent.py                # Agent logic — handle_invoke() / handle_stream()
-│   └── start_server.py         # AgentServer bootstrap + /test route
-├── scripts/
-│   └── setup.py                # Template selection and component installation
-├── resources/                  # DAB resource definitions
-│   └── app-resource.yml        # Databricks App + experiment resources
-└── .github/workflows/          # CI/CD (or .azure/ or .gitlab/)
-```
+- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.288.0 or later
+- [uv](https://docs.astral.sh/uv/) package manager
+- A Databricks workspace with Unity Catalog enabled (one catalog per environment — see `template/{{.input_root_dir}}/docs/setup.md.tmpl`)
 
-After selecting **Single MCP Server**, `server/` replaces `agent_server/`:
+## What's in the box
 
-```
-├── server/                     # MCP server code
-│   ├── app.py                  # FastAPI + FastMCP setup + /test route
-│   ├── main.py                 # Uvicorn entry point
-│   ├── tools.py                # Tool definitions — add your tools here
-│   └── utils.py                # Workspace client with user auth forwarding
-```
+- **Bundle scaffold** — `databricks.yml` (direct deployment engine), `pyproject.toml`, dev/staging/prod targets with one catalog per environment.
+- **Unity Catalog resources** — schema and managed volume for artifacts; MLflow experiment configured to land artifacts in the volume.
+- **CI/CD workflows** — GitHub Actions, GitHub Actions for GitHub Enterprise Servers, GitLab, and Azure DevOps. PR validates; merge to `main` deploys to staging; tag `v*` deploys to prod.
+- **Cloud auth** — Azure (service principal), AWS and GCP (token-based) wired into each CI/CD platform.
+- **`AGENTS.md`** — tool-agnostic conventions for coding assistants (Claude Code, Cursor, Genie Code, GitHub Copilot, others).
+- **`docs/setup.md`** — end-to-end configuration guide for UC catalogs, CLI profiles, and CI/CD credentials per cloud and platform.
 
-## How It Works
+The scaffold ships the structural pieces and nothing else. Application code, data prep pipelines, model serving, jobs, and apps are user additions under `src/` and new files in `resources/`.
 
-### Architecture
+## Production patterns
 
-AgentOps Stacks has two layers:
+Evaluation, governance, and monitoring aren't pre-installed — they're applied as the solution develops:
 
-1. **Operations layer** (this template) — bundle configuration, CI/CD, deployment targets, component system. Generated by `databricks bundle init`.
+- **Eval gates** — add `evaluation/thresholds.yml` and `evaluation/gate.py`; CI workflows auto-detect and gate promotion on them.
+- **Governance posture** — add `governance/posture.md` and `governance/data_flows.md`; the prod-promotion workflow checks for presence.
+- **Monitoring** — configure trace destination, alert rules, and dashboards per resource as you deploy them.
 
-2. **Component layer** — the agent or MCP server code, app configuration, and resource definitions. Installed by `uv run setup` from the component manifests in `components/`.
+## Status (v2)
 
-Each component is defined by a manifest (`component.md`) that declares what files to copy, what dependencies to add, and what DAB modifications to apply. The setup script reads the manifest and assembles the project.
+v2 is a simplified, dual-channel rework:
 
-### Databricks Asset Bundles
+- **DAB template** (this repo) — canonical, pure-CLI scaffold. Generates the same project shape from any environment that runs `databricks bundle init`.
+- **agentops-stacks Claude Code plugin** (planned) — resident copilot for authoring and adopting projects, applying production patterns interactively. Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`).
 
-A DAB is a project format that lets you define Databricks resources (jobs, apps, models, experiments) as YAML configuration alongside your code. The Databricks CLI deploys everything together.
+The template stands on its own — no plugin required.
 
-Key concepts:
-- **`databricks.yml`** — bundle root configuration. Variables, resource includes, deployment targets.
-- **Targets** — named environments (dev, staging, prod) with workspace URLs and variable values.
-- **Resources** — YAML files in `resources/` that define apps, experiments, jobs, and models.
-- **`databricks bundle deploy`** — deploys all resources to the specified target workspace.
+## Documentation
 
-### Agent Deployment
-
-Your agent runs inside a [Databricks App](https://docs.databricks.com/en/dev-tools/databricks-apps/index.html) using MLflow's AgentServer. The deployment flow:
-
-1. `databricks bundle deploy` creates the app resource in your workspace
-2. The app starts and runs your agent server via `uv run start-server`
-3. The agent responds on the `/invocations` endpoint; the `/test` route exercises it with a sample request
-
-### MCP Server Deployment
-
-Your MCP server runs as a Databricks App using FastMCP + FastAPI. The deployment flow:
-
-1. `databricks bundle deploy` creates the app resource in your workspace
-2. The app starts the server via `uv run custom-mcp-server`
-3. MCP clients connect to the server's endpoint; the `/test` route calls the health tool
-
-## CI/CD
-
-The template generates CI/CD workflows for your chosen platform:
-
-1. **On PR** — validates the bundle configuration for staging and prod targets
-2. **On merge to main** — deploys to staging
-3. **On merge to release** — deploys to production
-
-### Required Secrets
-
-**GitHub Actions (AWS/GCP):**
-- `STAGING_WORKSPACE_TOKEN`, `PROD_WORKSPACE_TOKEN`
-
-**GitHub Actions (Azure):**
-- `STAGING_AZURE_SP_TENANT_ID`, `STAGING_AZURE_SP_APPLICATION_ID`, `STAGING_AZURE_SP_CLIENT_SECRET`
-- `PROD_AZURE_SP_TENANT_ID`, `PROD_AZURE_SP_APPLICATION_ID`, `PROD_AZURE_SP_CLIENT_SECRET`
-
-See the generated CI/CD README in `.github/workflows/README.md` (or equivalent) for platform-specific setup.
-
-## Local Development
-
-```bash
-# Agent app
-uv sync && uv run start-server
-
-# MCP server
-uv sync && uv run custom-mcp-server
-```
-
-## Customization
-
-### Changing branch names
-
-CI/CD workflows default to `main` (staging deploys) and `release` (prod deploys). Edit the branch triggers in your CI/CD workflow files.
-
-### Adding app resources
-
-If your app needs access to serving endpoints, UC functions, or databases, add them to the `resources:` section in `resources/app-resource.yml`. See the [Databricks Apps documentation](https://docs.databricks.com/en/dev-tools/databricks-apps/app-resources.html) for available resource types.
-
-### Docker image (GitLab)
-
-GitLab pipelines use `databricksfieldeng/mlopsstacks:latest` by default. Change the `image:` line in `.gitlab/pipelines/*.yml` files.
+- `template/{{.input_root_dir}}/README.md.tmpl` — what a rendered project looks like
+- `template/{{.input_root_dir}}/AGENTS.md.tmpl` — conventions and guidance for coding agents
+- `template/{{.input_root_dir}}/docs/setup.md.tmpl` — end-to-end configuration guide
+- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [MLflow 3 + Unity Catalog](https://docs.databricks.com/mlflow3/)
