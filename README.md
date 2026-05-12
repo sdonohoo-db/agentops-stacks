@@ -12,7 +12,7 @@ You'll be prompted for project name, cloud, and CI/CD platform. After init:
 
 ```bash
 cd <project_name>
-uv sync
+uv sync                                                       # generates uv.lock — commit it
 databricks bundle validate -t dev --profile <dev-profile>
 databricks bundle deploy -t dev --profile <dev-profile>
 ```

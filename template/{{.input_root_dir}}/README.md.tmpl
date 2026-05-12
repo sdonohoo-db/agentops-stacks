@@ -8,7 +8,7 @@ This project ships the structure, CI/CD wiring, and Unity Catalog configuration 
 
 1. Follow **[`docs/setup.md`](docs/setup.md)** — end-to-end configuration guide (UC catalogs and grants, CLI profiles, service principals, CI/CD credentials).
 2. Fill in the TODO placeholders in `databricks.yml` (workspace hosts, `run_as` identities).
-3. `uv sync`
+3. `uv sync` — generates `uv.lock`. **Commit `uv.lock` to git** (CI caches against it).
 4. `databricks bundle validate -t dev --profile <dev-profile>`
 5. `databricks bundle deploy -t dev --profile <dev-profile>`
 

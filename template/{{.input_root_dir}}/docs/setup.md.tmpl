@@ -150,6 +150,8 @@ Sync dependencies:
 uv sync
 ```
 
+This generates `uv.lock` (the resolved dependency tree). **Commit `uv.lock` to git** — CI workflows cache against it, and committing it gives deterministic builds across local and CI environments.
+
 `databricks-connect` is a dev dependency — pin it in `pyproject.toml` to match your cluster's runtime version if you'll be running Spark code locally against a remote cluster.
 
 ---
