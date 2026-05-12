@@ -1,0 +1,52 @@
+# hello_agent
+
+AgentOps Stacks v2 project — a Databricks Asset Bundle scaffold for production-ready AI solutions.
+
+This project ships the structure, CI/CD wiring, and Unity Catalog configuration to take an AI solution to production. Build your solution under `src/` and apply evaluation, governance, and monitoring patterns as you go — manually, with a coding assistant, or via the agentops-stacks plugin.
+
+## Quick start
+
+1. Follow **[`docs/setup.md`](docs/setup.md)** — end-to-end configuration guide (UC catalogs and grants, CLI profiles, service principals, CI/CD credentials).
+2. Fill in the TODO placeholders in `databricks.yml` (workspace hosts, `run_as` identities).
+3. `uv sync`
+4. `databricks bundle validate -t dev --profile <dev-profile>`
+5. `databricks bundle deploy -t dev --profile <dev-profile>`
+
+## Project layout
+
+| Path | Purpose |
+|------|---------|
+| `databricks.yml` | Bundle root: variables, targets, resource includes, deployment engine |
+| `resources/` | DAB resource definitions (`experiment.yml`, `schemas.yml`, `volumes.yml`) |
+| `.agentops-stacks/manifest.yml` | agentops-stacks recognition marker, contract version |
+| `src/` | Your AI solution code (apps, notebooks, MCP servers, etc.) |
+| `tests/` | Unit and integration tests |
+| `docs/` | Project documentation; `docs/setup.md` is the configuration guide |
+| `.github/`, `.gitlab/`, `.azure/` | CI/CD pipelines for the selected platform |
+| `AGENTS.md` | Project conventions for AI coding agents (tool-agnostic) |
+
+## Deployment targets
+
+| Target | Mode | Trigger |
+|--------|------|---------|
+| dev | development | Manual (`databricks bundle deploy -t dev`) |
+| staging | production | CI/CD on push to `main` |
+| prod | production | CI/CD on tag matching `v*` |
+
+Each target has its own catalog. Dev mode prefixes resource names with user info to isolate parallel dev work. Production mode rejects user-scoped paths and uses fixed names.
+
+## Production patterns
+
+Evaluation, governance, and monitoring are not pre-installed — apply them as your solution develops:
+
+- **Evaluation gates** — apply by adding `evaluation/thresholds.yml` and `evaluation/gate.py`; CI workflows auto-detect and gate promotion on them.
+- **Governance posture** — apply by adding `governance/posture.md` and `governance/data_flows.md`; the prod-promotion workflow checks for presence.
+- **Monitoring** — apply per-resource as you deploy them (trace destination in code, alert rules per endpoint, etc.).
+
+An agentops-stacks plugin — portable across Claude Code, Cursor, and Genie Code — is in development; it will offer interactive commands to apply each pattern. Until then, follow the conventions documented in `AGENTS.md`.
+
+## Resources
+
+- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [MLflow 3 + Unity Catalog](https://docs.databricks.com/mlflow3/)
+- [Direct deployment engine](https://docs.databricks.com/dev-tools/bundles/direct)

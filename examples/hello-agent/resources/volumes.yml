@@ -1,0 +1,8 @@
+resources:
+  volumes:
+    artifacts:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: artifacts
+      volume_type: MANAGED
+      comment: "MLflow artifacts for ${bundle.name}"

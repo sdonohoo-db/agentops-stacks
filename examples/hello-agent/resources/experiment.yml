@@ -1,0 +1,5 @@
+resources:
+  experiments:
+    experiment:
+      name: /Shared/${bundle.name}/${bundle.target}
+      artifact_location: /Volumes/${var.catalog}/${var.schema}/artifacts

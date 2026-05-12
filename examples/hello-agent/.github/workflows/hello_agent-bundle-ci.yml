@@ -1,0 +1,58 @@
+# PR checks for hello_agent — unit tests, bundle validation, conditional eval gate.
+name: PR checks for hello_agent
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: .
+
+env:
+  ARM_TENANT_ID: ${{ secrets.STAGING_AZURE_SP_TENANT_ID }}
+  ARM_CLIENT_ID: ${{ secrets.STAGING_AZURE_SP_APPLICATION_ID }}
+  ARM_CLIENT_SECRET: ${{ secrets.STAGING_AZURE_SP_CLIENT_SECRET }}
+  
+
+jobs:
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync
+      # Exit 5 from pytest means "no tests collected" — pass until the project adds tests.
+      - run: uv run pytest || [ $? -eq 5 ]
+
+  validate_bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@v0.288.0
+      - name: Validate bundle for staging
+        run: databricks bundle validate -t staging
+
+  eval_gate:
+    needs: validate_bundle
+    if: hashFiles('evaluation/thresholds.yml') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Run eval gate
+        # The gate script should load evaluation/thresholds.yml, run the
+        # project's eval suite, and exit non-zero if thresholds are breached.
+        run: |
+          if [ -f evaluation/gate.py ]; then
+            uv run python evaluation/gate.py
+          else
+            echo "::error::evaluation/thresholds.yml exists but evaluation/gate.py is missing."
+            echo "::error::Apply the full eval-gate pattern (plugin: /add-eval-gate)."
+            exit 1
+          fi
