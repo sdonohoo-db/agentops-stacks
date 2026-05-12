@@ -4,45 +4,13 @@ AgentOps Stacks v2 project — a Databricks Asset Bundle scaffold for production
 
 This project ships the structure, CI/CD wiring, and Unity Catalog configuration to take an AI solution to production. Build your solution under `src/` and apply evaluation, governance, and monitoring patterns as you go — manually, with a coding assistant, or via the agentops-stacks plugin.
 
-## Prerequisites
+## Quick start
 
-### Unity Catalog grants
-
-The deploying user or service principal needs the following grants on each environment's catalog:
-
-- `USE CATALOG` on the catalog
-- `CREATE SCHEMA` on the catalog
-- `CREATE VOLUME` on the schema
-- `WRITE VOLUME` on the `artifacts` volume (for MLflow runtime)
-
-The catalog itself must exist before the first deploy — catalog creation is admin-scoped and not handled by this bundle. Default catalog names: `{{ .input_project_name }}_dev`, `{{ .input_project_name }}_staging`, `{{ .input_project_name }}_prod`.
-
-### Authentication
-
-Choose any auth method DAB supports — `~/.databrickscfg` profiles, OAuth, env vars, or service principal credentials. If you use profiles, select one at deploy time via `--profile`, the `DATABRICKS_CONFIG_PROFILE` env var, or by adding `profile: <name>` to each target in `databricks.yml`.
-
-## Setup
-
-### 1. Configure workspace targets
-
-Edit `databricks.yml` and fill in the TODOs:
-
-- Workspace `host` URL for each target
-- Service principal names for staging and prod (`run_as`)
-- Adjust catalog or schema names if your organization has different conventions
-
-### 2. Install dependencies
-
-```bash
-uv sync
-```
-
-### 3. Validate and deploy
-
-```bash
-databricks bundle validate -t dev
-databricks bundle deploy -t dev
-```
+1. Follow **[`docs/setup.md`](docs/setup.md)** — end-to-end configuration guide (UC catalogs and grants, CLI profiles, service principals, CI/CD credentials).
+2. Fill in the TODO placeholders in `databricks.yml` (workspace hosts, `run_as` identities).
+3. `uv sync`
+4. `databricks bundle validate -t dev --profile <dev-profile>`
+5. `databricks bundle deploy -t dev --profile <dev-profile>`
 
 ## Project layout
 
@@ -50,20 +18,20 @@ databricks bundle deploy -t dev
 |------|---------|
 | `databricks.yml` | Bundle root: variables, targets, resource includes, deployment engine |
 | `resources/` | DAB resource definitions (experiment, schema, volume) |
-| `.agentops-stacks/manifest.yml` | Plugin recognition marker, contract version |
+| `.agentops-stacks/manifest.yml` | agentops-stacks recognition marker, contract version |
 | `src/` | Your AI solution code (apps, notebooks, MCP servers, etc.) |
 | `tests/` | Unit and integration tests |
-| `docs/` | Project documentation |
+| `docs/` | Project documentation; `docs/setup.md` is the configuration guide |
 | `.github/`, `.gitlab/`, `.azure/` | CI/CD pipelines for the selected platform |
-| `CLAUDE.md` | Project-level guidance for coding assistants |
+| `AGENTS.md` | Project conventions for AI coding agents (tool-agnostic) |
 
 ## Deployment targets
 
 | Target | Mode | Trigger |
 |--------|------|---------|
 | dev | development | Manual (`databricks bundle deploy -t dev`) |
-| staging | production | CI/CD on merge to `main` |
-| prod | production | CI/CD on tag / release |
+| staging | production | CI/CD on push to `main` |
+| prod | production | CI/CD on tag matching `v*` |
 
 Each target has its own catalog. Dev mode prefixes resource names with user info to isolate parallel dev work. Production mode rejects user-scoped paths and uses fixed names.
 
@@ -71,11 +39,11 @@ Each target has its own catalog. Dev mode prefixes resource names with user info
 
 Evaluation, governance, and monitoring are not pre-installed — they're applied as your solution develops:
 
-- **Evaluation gates** — define thresholds in `evaluation/thresholds.yml`; CI workflows gate promotion on them
-- **Governance posture** — document data flows and DASF mapping in `governance/`; prod promotion checks for presence
-- **Monitoring** — configured per-resource as you deploy them
+- **Evaluation gates** — define thresholds in `evaluation/thresholds.yml` and a gate script in `evaluation/gate.py`; CI workflows auto-detect and gate promotion on them.
+- **Governance posture** — document data flows and DASF mapping in `governance/`; prod-promotion workflow checks for presence.
+- **Monitoring** — configured per-resource as you deploy them (trace destination, alert rules, etc.).
 
-The agentops-stacks plugin can help apply each pattern interactively. CLI users can apply patterns manually following the conventions documented in `CLAUDE.md`.
+The agentops-stacks plugin (planned) will offer interactive commands to apply each pattern. Without the plugin, follow the conventions documented in `AGENTS.md`.
 
 ## Resources
 
