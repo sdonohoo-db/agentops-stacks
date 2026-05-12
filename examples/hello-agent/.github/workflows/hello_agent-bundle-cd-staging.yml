@@ -15,7 +15,6 @@ env:
   ARM_TENANT_ID: ${{ secrets.STAGING_AZURE_SP_TENANT_ID }}
   ARM_CLIENT_ID: ${{ secrets.STAGING_AZURE_SP_APPLICATION_ID }}
   ARM_CLIENT_SECRET: ${{ secrets.STAGING_AZURE_SP_CLIENT_SECRET }}
-  
 
 jobs:
   deploy:
@@ -29,9 +28,24 @@ jobs:
       - name: Deploy bundle to staging
         run: databricks bundle deploy -t staging
 
+  # See detect_patterns rationale in the PR-check workflow.
+  detect_patterns:
+    runs-on: ubuntu-latest
+    outputs:
+      has_eval: ${{ steps.check.outputs.has_eval }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [ -f evaluation/thresholds.yml ]; then
+            echo "has_eval=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_eval=false" >> "$GITHUB_OUTPUT"
+          fi
+
   eval_gate:
-    needs: deploy
-    if: ${{ hashFiles('evaluation/thresholds.yml') != '' }}
+    needs: [deploy, detect_patterns]
+    if: ${{ needs.detect_patterns.outputs.has_eval == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
