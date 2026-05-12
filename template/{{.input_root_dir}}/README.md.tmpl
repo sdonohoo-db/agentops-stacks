@@ -17,7 +17,7 @@ This project ships the structure, CI/CD wiring, and Unity Catalog configuration 
 | Path | Purpose |
 |------|---------|
 | `databricks.yml` | Bundle root: variables, targets, resource includes, deployment engine |
-| `resources/` | DAB resource definitions (experiment, schema, volume) |
+| `resources/` | DAB resource definitions (`experiment.yml`, `schemas.yml`, `volumes.yml`) |
 | `.agentops-stacks/manifest.yml` | agentops-stacks recognition marker, contract version |
 | `src/` | Your AI solution code (apps, notebooks, MCP servers, etc.) |
 | `tests/` | Unit and integration tests |
@@ -43,7 +43,7 @@ Evaluation, governance, and monitoring are not pre-installed — apply them as y
 - **Governance posture** — apply by adding `governance/posture.md` and `governance/data_flows.md`; the prod-promotion workflow checks for presence.
 - **Monitoring** — apply per-resource as you deploy them (trace destination in code, alert rules per endpoint, etc.).
 
-The agentops-stacks plugin (planned) will offer interactive commands to apply each pattern. Without the plugin, follow the conventions documented in `AGENTS.md`.
+An agentops-stacks Claude Code plugin is in development; it will offer interactive commands to apply each pattern. Until then, follow the conventions documented in `AGENTS.md`.
 
 ## Resources
 

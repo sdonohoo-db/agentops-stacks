@@ -7,6 +7,8 @@ __pycache__/
 mlruns
 *.db
 .dbx
+# Local env / secrets (use .env.example as a template)
+.env
 # Exclude local environment directory
 venv
 # Exclude local distribution/packaging directories
