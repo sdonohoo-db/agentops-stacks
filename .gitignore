@@ -2,6 +2,9 @@
 .vscode
 .venv
 
+# Working scratchpad — plans, notes, copied context from agentops-next. Never committed.
+/.local/
+
 # local bundle files
 **/.databricks/*
 
