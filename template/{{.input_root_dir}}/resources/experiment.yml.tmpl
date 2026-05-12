@@ -1,5 +1,7 @@
 resources:
   experiments:
     experiment:
-      name: /Shared/${bundle.name}/${bundle.target}
+      # Flat path under /Shared/ so the deploy doesn't depend on a pre-created
+      # parent directory. Group experiments by bundle.name when browsing.
+      name: /Shared/${bundle.name}_${bundle.target}
       artifact_location: dbfs:/Volumes/${var.catalog}/${var.schema}/artifacts

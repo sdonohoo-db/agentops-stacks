@@ -56,7 +56,7 @@ The bundled experiment resource (`resources/experiment.yml`) only sets `artifact
 
 ```python
 mlflow.set_experiment(
-    name=f"/Shared/{{ .input_project_name }}/{env}",
+    name=f"/Shared/{{ .input_project_name }}_{env}",
     location_url=f"{catalog}.{schema}.traces",
 )
 ```
