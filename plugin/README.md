@@ -20,7 +20,6 @@ Prerequisites: `databricks` CLI installed (only required for `--install-to-genie
    ```bash
    git clone https://github.com/sdonohoo-db/agentops-stacks.git
    cd agentops-stacks
-   git checkout agentops-stacks-v2
    ```
 
 2. From your *target project's* root directory (or a fresh empty dir), run the installer pointing at the cloned repo:
@@ -41,7 +40,7 @@ Prerequisites: a Databricks workspace, write access to your own `/Workspace/User
 
 1. In your workspace, open the file [`plugin/skills/install_genie_code_skills.py`](skills/install_genie_code_skills.py) as a notebook. The simplest way is to clone this repo as a Git folder in Workspace → Add → Git folder, then open the file.
 
-2. Run all cells. The notebook pulls the latest skill and the bundled template from GitHub and uploads to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. While v2 is staged on a personal fork, the notebook defaults to `GITHUB_OWNER=sdonohoo-db` and `GITHUB_REF=agentops-stacks-v2` — edit the configuration cell if you want a different branch.
+2. Run all cells. The notebook pulls the latest skill and the bundled template from GitHub and uploads to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. The notebook defaults to `GITHUB_OWNER=sdonohoo-db` and `GITHUB_REF=main` — edit the configuration cell if you want a different fork or branch.
 
 3. Pre-create the destination directory where you want the scaffold to land. For repo-backed projects, use the workspace UI: Workspace → Add → Git folder → paste the empty target repo URL → clone. For non-repo scratch projects, just create an empty folder under `/Workspace/Users/<you>/`.
 

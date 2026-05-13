@@ -19,11 +19,11 @@
 # COMMAND ----------
 
 # -- Configuration ----------------------------------------------------------
-# Source repo and ref. While v2 is staged on a personal fork, point at it.
-# Once v2 lands on databricks-solutions/agentops-stacks main, update accordingly.
+# Source repo and ref. Currently published from the sdonohoo-db fork; will
+# move to databricks-solutions/agentops-stacks once stabilized.
 GITHUB_OWNER = "sdonohoo-db"
 GITHUB_REPO = "agentops-stacks"
-GITHUB_REF = "agentops-stacks-v2"
+GITHUB_REF = "main"
 
 # COMMAND ----------
 

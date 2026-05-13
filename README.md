@@ -1,8 +1,30 @@
 # agentops-stacks
 
-A Databricks Asset Bundle (DAB) template that scaffolds production-ready AI projects on Databricks: dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms, and the hooks for evaluation, governance, and monitoring patterns. Build your solution under `src/` and apply production patterns as the project develops.
+A Databricks Asset Bundle (DAB) template + plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
 
-v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in development. The `--branch` flag drops once v2 lands on `databricks-solutions/agentops-stacks` main.
+Currently published from the `sdonohoo-db/agentops-stacks` fork while in development. Will move to `databricks-solutions/agentops-stacks` once stabilized.
+
+## What you get
+
+agentops-stacks generates the production envelope for an AI project on Databricks. The scaffold includes:
+
+- Three-environment Databricks Asset Bundle (dev / staging / prod) with `direct` deployment engine
+- One Unity Catalog catalog per environment, plus a schema and managed volume for artifacts
+- MLflow experiment configured to land artifacts in the volume
+- CI/CD wiring for one of four platforms — GitHub Actions, GitHub Actions for GHES, GitLab, or Azure DevOps — with PR validation, staging deploy on merge to `main`, and prod deploy on `v*` tag
+- Cloud auth (Azure service principal; AWS and GCP tokens) wired into the CI/CD workflows
+- `AGENTS.md` with conventions for coding assistants
+- `docs/setup.md` covering UC catalogs, CLI profiles, and CI/CD credentials
+
+Application code, pipelines, model serving, jobs, and apps go under `src/` and new files in `resources/`. Familiarity with Databricks Asset Bundles and CI/CD pipelines is assumed.
+
+## Prerequisites
+
+- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.295.0 or later
+- [uv](https://docs.astral.sh/uv/) package manager
+- A Databricks workspace with Unity Catalog enabled (one catalog per environment — see [docs/setup.md](template/{{.input_root_dir}}/docs/setup.md.tmpl))
+
+---
 
 ## Two ways to scaffold
 
@@ -13,19 +35,23 @@ Both paths produce byte-identical project structure. Pick whichever fits your wo
 Works anywhere `databricks` runs — local terminal, CI, or the Genie Code web terminal.
 
 ```bash
-databricks bundle init https://github.com/sdonohoo-db/agentops-stacks --branch agentops-stacks-v2
+databricks bundle init https://github.com/sdonohoo-db/agentops-stacks
 ```
 
 ### Path 2: agentops-stacks plugin
 
-Renders the same scaffold from inside a coding assistant — Claude Code, Cursor, or Genie Code — without leaving the assistant. Useful when you want a conversational scaffold + follow-up help.
+Renders the same scaffold from inside a coding assistant — Claude Code, Cursor, or Genie Code — without leaving the assistant. Useful when you want a conversational scaffold and follow-up help.
 
 See [plugin/README.md](plugin/README.md) for install and usage. Two install flavors:
 
 - **Local install** — clone this repo, run `./plugin/skills/install_skills.sh` from your project root. The skill is then available in Claude Code or Cursor.
 - **Genie Code install** — open `plugin/skills/install_genie_code_skills.py` as a notebook in your workspace and run all cells. The skill is then available in Genie Code.
 
+---
+
 ## After scaffolding
+
+Whichever path you took, the next steps are the same:
 
 ```bash
 cd <project_name>
@@ -34,30 +60,20 @@ databricks bundle validate -t dev --profile <dev-profile>
 databricks bundle deploy -t dev --profile <dev-profile>
 ```
 
-## Prerequisites
+Set workspace hosts and Unity Catalog grants per [docs/setup.md](template/{{.input_root_dir}}/docs/setup.md.tmpl) before deploying.
 
-- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.295.0 or later
-- [uv](https://docs.astral.sh/uv/) package manager
-- A Databricks workspace with Unity Catalog enabled (one catalog per environment — see `template/{{.input_root_dir}}/docs/setup.md.tmpl`)
+## Production patterns (TBD — plugin skills not yet built)
 
-## What's in the box
+The CI/CD workflows already have hooks for the production patterns — for example, the prod-deploy workflow auto-detects `evaluation/thresholds.yml` and runs `evaluation/gate.py` if present — but the plugin skills that author the patterns aren't built yet.
 
-- **Bundle scaffold** — `databricks.yml` (direct deployment engine), `pyproject.toml`, dev/staging/prod targets with one catalog per environment.
-- **Unity Catalog resources** — schema and managed volume for artifacts; MLflow experiment configured to land artifacts in the volume.
-- **CI/CD workflows** — GitHub Actions, GitHub Actions for GitHub Enterprise Servers, GitLab, and Azure DevOps. PR validates; merge to `main` deploys to staging; tag `v*` deploys to prod.
-- **Cloud auth** — Azure (service principal), AWS and GCP (token-based) wired into each CI/CD platform.
-- **`AGENTS.md`** — tool-agnostic conventions for coding assistants (Claude Code, Cursor, Genie Code, GitHub Copilot, others).
-- **`docs/setup.md`** — end-to-end configuration guide for UC catalogs, CLI profiles, and CI/CD credentials per cloud and platform.
+Planned (delivery sequence in [projectdocs/implementation-plan.md](projectdocs/implementation-plan.md)):
 
-The scaffold ships the structural pieces and nothing else. Application code, data prep pipelines, model serving, jobs, and apps are user additions under `src/` and new files in `resources/`.
+- **Eval gates** — `evaluation/thresholds.yml` + `evaluation/gate.py`. CI hook in place; authoring skill TBD.
+- **Governance posture** — `governance/posture.md` + `governance/data_flows.md`. Prod-promotion check in place; authoring skill TBD.
+- **Monitoring** — trace destination, alert rules, dashboards. Skill TBD.
+- **Feedback loops** — end-user feedback UI, SME labeling, batch inference for offline eval. Skill TBD.
 
-## Production patterns
-
-Evaluation, governance, and monitoring aren't pre-installed — they're applied as the solution develops:
-
-- **Eval gates** — add `evaluation/thresholds.yml` and `evaluation/gate.py`; CI workflows auto-detect and gate promotion on them.
-- **Governance posture** — add `governance/posture.md` and `governance/data_flows.md`; the prod-promotion workflow checks for presence.
-- **Monitoring** — configure trace destination, alert rules, and dashboards per resource as you deploy them.
+Until the skills ship, you can hand-roll any of these into a scaffolded project — the CI/CD hooks will pick them up.
 
 ## Status (v2)
 
@@ -67,8 +83,6 @@ v2 is a simplified, dual-channel rework:
 - **agentops-stacks plugin** (`plugin/`) — portable resident copilot for authoring projects from inside a coding assistant. Renders byte-identical output to `bundle init` across all four cloud × CI/CD combinations. Works in Claude Code, Cursor, and Genie Code.
 
 Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`). The template stands on its own — the plugin is additive.
-
-Production patterns (eval gates, governance posture, monitoring, feedback loops) are not yet implemented. See [projectdocs/implementation-plan.md](projectdocs/implementation-plan.md) for the roadmap.
 
 ## Documentation
 

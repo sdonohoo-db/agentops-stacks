@@ -2,7 +2,7 @@
 
 The evaluation pattern applied to the Hello Agent. For the pattern *contract*
 (what `thresholds.yml` and `gate.py` are expected to provide across all
-projects), see `projectdocs/patterns/evaluation.md` in the agentops-stacks-v2
+projects), see `projectdocs/patterns/evaluation.md` in the agentops-stacks
 repo.
 
 ## What this evaluates

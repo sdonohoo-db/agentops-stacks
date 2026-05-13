@@ -23,10 +23,10 @@ feedback loops. Those layer on later.
 
 ## Recipe to reproduce
 
-1. **Init the v2 template** into your work area:
+1. **Init the template** into your work area:
 
    ```bash
-   databricks bundle init <path-to-agentops-stacks-v2> --config-file /tmp/init.json
+   databricks bundle init <path-to-agentops-stacks> --config-file /tmp/init.json
    ```
 
    where `/tmp/init.json` contains:
