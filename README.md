@@ -2,13 +2,30 @@
 
 A Databricks Asset Bundle (DAB) template that scaffolds production-ready AI projects on Databricks: dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms, and the hooks for evaluation, governance, and monitoring patterns. Build your solution under `src/` and apply production patterns as the project develops.
 
-## Quick start
+v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in development. The `--branch` flag drops once v2 lands on `databricks-solutions/agentops-stacks` main.
+
+## Two ways to scaffold
+
+Both paths produce byte-identical project structure. Pick whichever fits your workflow.
+
+### Path 1: Databricks CLI
+
+Works anywhere `databricks` runs — local terminal, CI, or the Genie Code web terminal.
 
 ```bash
 databricks bundle init https://github.com/sdonohoo-db/agentops-stacks --branch agentops-stacks-v2
 ```
 
-You'll be prompted for project name, cloud, and CI/CD platform. After init:
+### Path 2: agentops-stacks plugin
+
+Renders the same scaffold from inside a coding assistant — Claude Code, Cursor, or Genie Code — without leaving the assistant. Useful when you want a conversational scaffold + follow-up help.
+
+See [plugin/README.md](plugin/README.md) for install and usage. Two install flavors:
+
+- **Local install** — clone this repo, run `./plugin/skills/install_skills.sh` from your project root. The skill is then available in Claude Code or Cursor.
+- **Genie Code install** — open `plugin/skills/install_genie_code_skills.py` as a notebook in your workspace and run all cells. The skill is then available in Genie Code.
+
+## After scaffolding
 
 ```bash
 cd <project_name>
@@ -16,8 +33,6 @@ uv sync                                                       # generates uv.loc
 databricks bundle validate -t dev --profile <dev-profile>
 databricks bundle deploy -t dev --profile <dev-profile>
 ```
-
-v2 is staged on the `agentops-stacks-v2` branch of a personal fork while in development. The `--branch` flag drops once v2 lands on `databricks-solutions/agentops-stacks` main.
 
 ## Prerequisites
 
@@ -48,10 +63,12 @@ Evaluation, governance, and monitoring aren't pre-installed — they're applied 
 
 v2 is a simplified, dual-channel rework:
 
-- **DAB template** (this repo) — canonical, pure-CLI scaffold. Generates the same project shape from any environment that runs `databricks bundle init`.
-- **agentops-stacks plugin** (planned) — portable resident copilot for authoring and adopting projects, applying production patterns interactively. Works across Claude Code, Cursor, and Genie Code. Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`).
+- **DAB template** (this repo) — canonical scaffold. Generates the same project shape from any environment that runs `databricks bundle init`.
+- **agentops-stacks plugin** (`plugin/`) — portable resident copilot for authoring projects from inside a coding assistant. Renders byte-identical output to `bundle init` across all four cloud × CI/CD combinations. Works in Claude Code, Cursor, and Genie Code.
 
-The template stands on its own — no plugin required.
+Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`). The template stands on its own — the plugin is additive.
+
+Production patterns (eval gates, governance posture, monitoring, feedback loops) are not yet implemented. See [projectdocs/implementation-plan.md](projectdocs/implementation-plan.md) for the roadmap.
 
 ## Documentation
 

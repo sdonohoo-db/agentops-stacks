@@ -60,15 +60,15 @@ The `scaffold(...)` function validates inputs, walks the template tree, and writ
 
 ## Genie Code workspace flow
 
-Genie Code can't run `databricks bundle init`. The typical flow:
+The typical flow:
 
 1. User creates an empty repo in Databricks Repos via the workspace UI (e.g., `/Workspace/Repos/<user>/my-agent/`).
 2. User opens Genie Code from that directory and asks to scaffold.
 3. You collect the four inputs above, with `destination` set to `.` (the user is already inside the target).
 4. Call `scaffold(...)` — files land at `/Workspace/Repos/<user>/my-agent/`.
-5. The user commits and pushes from the Repos UI (Genie Code cannot push).
+5. The user commits and pushes through the Repos UI.
 
-If the user hasn't created the repo yet, instruct them to do that first — it's a hard prerequisite for the Genie Code workflow.
+Git CLI is available in Genie Code, but repo lifecycle (create, commit, push) is currently more reliable through the workspace UI. Treat "repo exists in the workspace" as a prerequisite and instruct the user to set it up via the UI if they haven't.
 
 ## After scaffolding
 

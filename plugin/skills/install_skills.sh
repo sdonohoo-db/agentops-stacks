@@ -114,6 +114,9 @@ upload_skill_to_genie_workspace() {
     echo -e "  ${GREEN}Uploading${NC} $skill_name"
     databricks workspace mkdirs "$skills_path/$skill_name" --profile "$db_profile" 2>/dev/null || true
 
+    # Upload everything under the skill dir, excluding only VCS junk. Filtering
+    # by extension dropped placeholder files (e.g. src/.gitkeep) and silently
+    # broke the rendered output, so we no-allowlist and exclude known junk.
     while IFS= read -r -d '' file; do
         rel_path="${file#$skill_dir/}"
         dest_path="$skills_path/$skill_name/$rel_path"
@@ -122,7 +125,12 @@ upload_skill_to_genie_workspace() {
             databricks workspace mkdirs "$parent_dir" --profile "$db_profile" 2>/dev/null || true
         fi
         databricks workspace import "$dest_path" --file "$file" --profile "$db_profile" --format AUTO --overwrite 2>/dev/null || true
-    done < <(find "$skill_dir" -type f \( -name "*.md" -o -name "*.py" -o -name "*.yaml" -o -name "*.yml" -o -name "*.sh" -o -name "*.json" -o -name "*.tmpl" -o -name ".gitignore" \) -print0)
+    done < <(find "$skill_dir" -type f \
+        -not -path '*/.git/*' \
+        -not -path '*/__pycache__/*' \
+        -not -name '*.pyc' \
+        -not -name '.DS_Store' \
+        -print0)
 }
 
 install_skills_to_genie_workspace() {
