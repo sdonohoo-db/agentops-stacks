@@ -1,7 +1,7 @@
 # AgentOps Stacks — Implementation Plan
 
 **Status:** Active
-**Last Updated:** 2026-05-12
+**Last Updated:** 2026-05-13
 
 Design principles, architecture, and source-of-truth references are in
 [design-and-architecture.md](design-and-architecture.md). This document tracks
@@ -12,17 +12,17 @@ git log and PR descriptions.
 
 v2 was a deliberate reset on 2026-05-11 (commit `cd7822a`) that dropped the
 component-assembly model from earlier work and re-anchored the project on two
-channels — a DAB template (canonical) and an agentops-stacks plugin (planned).
-Both produce or operate on the same scaffold, with `.agentops-stacks/manifest.yml`
-as the shared contract.
+channels — a DAB template (canonical) and an agentops-stacks plugin. Both
+produce the same scaffold, with `.agentops-stacks/manifest.yml` as the shared
+contract.
 
-The DAB template channel is functional end-to-end. The plugin channel and all
-production patterns are not yet implemented.
+Both channels now scaffold projects end-to-end. Production patterns are not
+yet started.
 
 | Channel / Pattern | State |
 |---|---|
 | DAB template (scaffold) | Functional; validated via `bundle init` + `bundle validate` + `bundle deploy --target dev` |
-| agentops-stacks plugin | Planned, not started |
+| agentops-stacks plugin (scaffold) | Functional; native renderer is byte-identical to `bundle init` across all 4 cloud × CI/CD combinations |
 | Evaluation pattern | Not started |
 | Governance posture pattern | Not started |
 | Monitoring pattern | Not started |
@@ -63,20 +63,46 @@ production patterns are not yet implemented.
 
 ## Channel B: agentops-stacks plugin
 
-Planned. Packages the same guidance the DAB template ships, plus interactive
-authoring help (apply patterns, review against priorities, propose next steps).
+### What ships today
 
-Scope at a high level:
+- `plugin/` co-located with `template/` in the repo.
+- One skill: **`agentops-stacks`** — scaffolds a new project. Lives at
+  `plugin/skills/agentops-stacks/` with `SKILL.md` and `render.py`.
+- One slash command: **`/init-agentops-stacks`** — discoverability wrapper for
+  Claude Code / Cursor users.
+- Installers under `plugin/skills/`:
+  - `install_skills.sh` — local install into `.claude/skills/agentops-stacks/`
+    with `--install-to-genie` and `--profile` flags mirroring ai-dev-kit's
+    pattern.
+  - `install_genie_code_skills.py` — Databricks notebook installer that pulls
+    from GitHub and uploads to `/Workspace/Users/<you>/.assistant/skills/`.
+- Native Python renderer (`render.py`) covering the closed Go-template subset
+  the template uses: variable substitution, `if/else if/else/end` with `eq` /
+  `or` / `and`, backtick literals (for escaping GitHub Actions `${{...}}`),
+  whitespace trim markers, and one named template (`cli_version`). Renderer
+  also handles file/directory name templating and the cicd-platform layout
+  pruning that `update_layout.tmpl` does in Go.
+- Self-contained install: installers copy the canonical `template/`,
+  `library/`, and `databricks_template_schema.json` into the installed skill
+  directory so the renderer works without network access. Avoids drift by
+  keeping `template/` at the repo root as the only canonical copy.
 
-- Portable SKILL.md content usable across coding assistants — Claude Code,
-  Cursor, Genie Code.
-- Installer pattern mirrors ai-dev-kit's, per the precedent established in
-  earlier work.
-- Operates on the shared scaffold contract (`.agentops-stacks/manifest.yml`)
-  so plugin behavior stays consistent with the CLI workflow.
+### What's validated
 
-Detailed plugin scope (skill list, installer mechanics, cross-assistant
-testing) will be planned as a separate document when the plugin work starts.
+- `render.py` is byte-identical to `databricks bundle init` across all four
+  cloud × CI/CD combinations (aws+github_actions,
+  aws+github_actions_for_github_enterprise_servers, azure+azure_devops,
+  gcp+gitlab). Hand-verified by diffing rendered output trees.
+- `install_skills.sh` installs into a local project; the resulting skill
+  renders correctly using its bundled template.
+
+### What's next
+
+- Promote the parity check from hand-run to a CI test (currently runs ad hoc).
+- Add a `/adopt` command for retrofitting existing projects (out of scope for
+  this baseline).
+- Production-pattern skills (eval, governance, monitoring, feedback) — these
+  add to `plugin/skills/` as separate skills.
 
 ## Production Patterns Roadmap
 
