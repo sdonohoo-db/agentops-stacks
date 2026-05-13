@@ -44,8 +44,8 @@ Renders the same scaffold from inside a coding assistant — Claude Code, Cursor
 
 See [plugin/README.md](plugin/README.md) for install and usage. Two install flavors:
 
-- **Local install** — clone this repo, run `./plugin/skills/install_skills.sh` from your project root. The skill is then available in Claude Code or Cursor.
 - **Genie Code install** — open `plugin/skills/install_genie_code_skills.py` as a notebook in your workspace and run all cells. The skill is then available in Genie Code.
+- **Local install** — clone this repo, run `./plugin/skills/install_skills.sh` from your project root. The skill is then available in Claude Code or Cursor.
 
 ---
 

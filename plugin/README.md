@@ -12,6 +12,20 @@ The plugin and the [DAB template](../template/) share the same scaffold contract
 
 Production patterns (evaluation gates, governance posture, monitoring, feedback loops) are not in this plugin yet. They land as separate skills as the project matures.
 
+## Try it — Genie Code
+
+Prerequisites: a Databricks workspace, write access to your own `/Workspace/Users/<you>/` path.
+
+1. In your workspace, open the file [`plugin/skills/install_genie_code_skills.py`](skills/install_genie_code_skills.py) as a notebook. The simplest way is to clone this repo as a Git folder in Workspace → Add → Git folder, then open the file.
+
+2. Run all cells. The notebook pulls the latest skill and the bundled template from GitHub and uploads to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. The notebook defaults to `GITHUB_OWNER=sdonohoo-db` and `GITHUB_REF=main` — edit the configuration cell if you want a different fork or branch.
+
+3. Pre-create the destination directory where you want the scaffold to land. For repo-backed projects, use the workspace UI: Workspace → Add → Git folder → paste the empty target repo URL → clone. For non-repo scratch projects, just create an empty folder under `/Workspace/Users/<you>/`.
+
+4. Open Genie Code from inside that target directory and say "scaffold a new agentops-stacks project."
+
+5. The skill will prompt for inputs and propose to run `render.py`. Genie Code shows a "Code execution blocked for safety reasons" prompt — this is expected (it triggers on the pattern of importing from `/Workspace` and creating files), not an error. Click **Run** to proceed; the scaffold lands in the destination you specified.
+
 ## Try it — Claude Code or Cursor
 
 Prerequisites: `databricks` CLI installed (only required for `--install-to-genie`), a coding assistant that loads `.claude/skills/`.
@@ -33,20 +47,6 @@ Prerequisites: `databricks` CLI installed (only required for `--install-to-genie
    - Say "scaffold a new agentops-stacks project."
 
    The assistant will prompt for project name, cloud, CI/CD platform, and destination, then render the scaffold.
-
-## Try it — Genie Code
-
-Prerequisites: a Databricks workspace, write access to your own `/Workspace/Users/<you>/` path.
-
-1. In your workspace, open the file [`plugin/skills/install_genie_code_skills.py`](skills/install_genie_code_skills.py) as a notebook. The simplest way is to clone this repo as a Git folder in Workspace → Add → Git folder, then open the file.
-
-2. Run all cells. The notebook pulls the latest skill and the bundled template from GitHub and uploads to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. The notebook defaults to `GITHUB_OWNER=sdonohoo-db` and `GITHUB_REF=main` — edit the configuration cell if you want a different fork or branch.
-
-3. Pre-create the destination directory where you want the scaffold to land. For repo-backed projects, use the workspace UI: Workspace → Add → Git folder → paste the empty target repo URL → clone. For non-repo scratch projects, just create an empty folder under `/Workspace/Users/<you>/`.
-
-4. Open Genie Code from inside that target directory and say "scaffold a new agentops-stacks project."
-
-5. The skill will prompt for inputs and propose to run `render.py`. Genie Code shows a "Code execution blocked for safety reasons" prompt — this is expected (it triggers on the pattern of importing from `/Workspace` and creating files), not an error. Click **Run** to proceed; the scaffold lands in the destination you specified.
 
 ## Combined: install locally and upload to Genie Code in one go
 
