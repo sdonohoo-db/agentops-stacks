@@ -52,7 +52,8 @@ yet started.
   `databricks bundle validate` and `databricks bundle deploy --target dev`
   against a live workspace.
 - CI/CD workflows render correctly for all four platforms (validated in
-  template tests, not yet exercised in a live CI run for v2).
+  template tests; GitHub Actions exercised in a live CI run — see commit
+  `be95c5e`).
 
 ### What's next
 
@@ -181,16 +182,17 @@ expected delivery sequence.
 
 The component-assembly model — `components/<name>/` directories,
 `component.md` manifests, `install_components()` setup script, per-component
-DAB snippets — was dropped in the v2 reset. The historical state of that work
-lives on the `agentops-stacks-rebase` branch.
-
-The pre-v2 work produced two functional components (`agent_app`,
-`mcp_server`) and validated that CLI-driven component stitching was workable.
-The decision to drop the model was driven by ownership-boundary
-considerations (see Design Priority #1 in
-[design-and-architecture.md](design-and-architecture.md)) — coding assistants
+DAB snippets — was dropped in the v2 reset on 2026-05-11. That work produced
+two functional components (`agent_app`, `mcp_server`) and validated that
+CLI-driven component stitching was workable, but the model was dropped on
+ownership-boundary grounds (see Design Priority #1 in
+[design-and-architecture.md](design-and-architecture.md)): coding assistants
 and ai-dev-kit already own the component-creation surface, and re-implementing
 it inside agentops-stacks competed with those tools instead of complementing
-them. The v2 architecture preserves the structural pieces that proved
-valuable (the scaffold, CI/CD wiring, UC conventions) and delegates
-component creation to the integration layer.
+them. The architecture today preserves the structural pieces that proved
+valuable (the scaffold, CI/CD wiring, UC conventions) and delegates component
+creation to the integration layer.
+
+The pre-v2 work itself is no longer kept as a separate branch — the
+`agentops-stacks-rebase` branch that held it was deleted after the v2 merge.
+Recovery would go through git reflog if needed.

@@ -1,6 +1,6 @@
 # agentops-stacks plugin
 
-A portable plugin that scaffolds AgentOps Stacks v2 projects from inside a coding assistant. Renders the same project shape as `databricks bundle init` against the canonical template, byte-for-byte. Works in Claude Code, Cursor, and Genie Code.
+A portable plugin that scaffolds AgentOps Stacks projects from inside a coding assistant. Renders the same project shape as `databricks bundle init` against the canonical template, byte-for-byte. Works in Claude Code, Cursor, and Genie Code.
 
 The plugin and the [DAB template](../template/) share the same scaffold contract (`.agentops-stacks/manifest.yml`). The plugin is the additive on-ramp; the template stands on its own.
 

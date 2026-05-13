@@ -1,5 +1,5 @@
 ---
-description: Scaffold a new AgentOps Stacks v2 project (DAB + CI/CD).
+description: Scaffold a new AgentOps Stacks project (DAB + CI/CD).
 ---
 
 Use the `agentops-stacks` skill to scaffold a new project.

@@ -1,13 +1,13 @@
 ---
 name: agentops-stacks
-description: Scaffold a new AgentOps Stacks v2 project — a Databricks Asset Bundle (DAB) with dev/staging/prod targets, Unity Catalog conventions, and CI/CD wiring for GitHub Actions, GitLab, or Azure DevOps across AWS, Azure, or GCP. Use when the user wants to start a new AI project on Databricks, generate a DAB scaffold, or set up CI/CD for an agent/ML project. Triggers on "scaffold a new agentops project", "new DAB with CI/CD", "start a new Databricks AI project", "create agentops-stacks project".
+description: Scaffold a new AgentOps Stacks project — a Databricks Asset Bundle (DAB) with dev/staging/prod targets, Unity Catalog conventions, and CI/CD wiring for GitHub Actions, GitLab, or Azure DevOps across AWS, Azure, or GCP. Use when the user wants to start a new AI project on Databricks, generate a DAB scaffold, or set up CI/CD for an agent/ML project. Triggers on "scaffold a new agentops project", "new DAB with CI/CD", "start a new Databricks AI project", "create agentops-stacks project".
 ---
 
 # agentops-stacks — Project Scaffold
 
 ## Overview
 
-Generates the production envelope for an AI project on Databricks: DAB layout with dev/staging/prod targets, Unity Catalog schema and volume, MLflow experiment, and CI/CD workflows. Identical to `databricks bundle init` output — the skill renders natively so it works in Genie Code, where the Databricks CLI is unavailable.
+Generates the production envelope for an AI project on Databricks: DAB layout with dev/staging/prod targets, Unity Catalog schema and volume, MLflow experiment, and CI/CD workflows. Byte-identical to `databricks bundle init` output — the skill renders natively so it works in environments without the Databricks CLI and so behavior is identical across Claude Code, Cursor, and Genie Code.
 
 Use this skill once per project, at the start. After scaffolding, the user develops their solution under `src/` and applies evaluation/governance/monitoring patterns separately as the project matures.
 

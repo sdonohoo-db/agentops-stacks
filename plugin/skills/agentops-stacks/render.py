@@ -379,7 +379,7 @@ def _prepare_dest(dest: Path, *, overwrite_empty_ok: bool) -> None:
 
 def _next_steps(project_name: str, dest: Path) -> str:
     return (
-        f"\n*** AgentOps Stacks v2 project created in '{dest}' ***\n\n"
+        f"\n*** AgentOps Stacks project created in '{dest}' ***\n\n"
         "Next steps:\n"
         f"  1. cd {dest}\n"
         "  2. Review .agentops-stacks/manifest.yml and databricks.yml\n"
@@ -393,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Scaffold an agentops-stacks v2 project (DAB + CI/CD).",
+        description="Scaffold an agentops-stacks project (DAB + CI/CD).",
     )
     parser.add_argument("--project-name", required=True)
     parser.add_argument("--cloud", required=True, choices=VALID_CLOUDS)

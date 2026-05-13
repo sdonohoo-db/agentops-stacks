@@ -1,7 +1,7 @@
 # Examples
 
 Reference solutions that demonstrate how to apply production patterns to a real
-agent inside an agentops-stacks v2 scaffold. Examples are **optional and
+agent inside an agentops-stacks scaffold. Examples are **optional and
 separate** — the base scaffold ships nothing example-like, and adopting an
 example is a deliberate user choice.
 
@@ -14,12 +14,12 @@ the generated bundle. That approach had two recurring problems:
 - **Hard to adapt.** Users had to identify and remove sample-specific files
   before adapting the scaffold to their actual use case.
 
-agentops-stacks v2 separates the two: the scaffold is clean, and examples
+agentops-stacks separates the two: the scaffold is clean, and examples
 live here as standalone reference projects the user can adopt selectively.
 
 ## What each example contains
 
-Each example is a complete, checked-in v2 scaffold + a specific solution +
+Each example is a complete, checked-in scaffold + a specific solution +
 the production patterns applied against it:
 
 - `databricks.yml`, `resources/`, CI/CD workflows — same shape as `bundle init`
@@ -39,7 +39,7 @@ Two paths, depending on whether you have the agentops-stacks plugin
 installed:
 
 **Without the plugin (manual):**
-1. Run `databricks bundle init` against the v2 template as you normally would
+1. Run `databricks bundle init` against the template as you normally would
    (see the [repo README](../README.md)).
 2. Copy the example's `src/`, `evaluation/`, etc. into your project.
 3. Adjust references (catalog names, model URIs, dataset paths) to match your

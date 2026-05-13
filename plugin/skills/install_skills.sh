@@ -13,8 +13,8 @@
 #   ./install_skills.sh --list
 #   ./install_skills.sh --help
 #
-# Remote install (curl) ships once v2 lands on the public repo; until then,
-# install from a local clone.
+# Remote install (curl) ships once the project lands on the public repo;
+# until then, install from a local clone.
 
 set -e
 

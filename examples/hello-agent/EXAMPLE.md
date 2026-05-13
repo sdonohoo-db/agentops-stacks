@@ -1,6 +1,6 @@
-# Hello Agent — agentops-stacks v2 example
+# Hello Agent — agentops-stacks example
 
-A worked example of the agentops-stacks v2 evaluation pattern applied to a
+A worked example of the agentops-stacks evaluation pattern applied to a
 deliberately trivial agent. The Hello Agent does almost nothing — it echoes
 the user's input back with a fixed greeting. It exists to demonstrate the
 closed loop (register → evaluate → gate) end-to-end without distracting
@@ -11,7 +11,7 @@ scaffold), see [../README.md](../README.md).
 
 ## What's in this example
 
-- A complete v2 scaffold (Azure + GitHub Actions) — same shape as
+- A complete scaffold (Azure + GitHub Actions) — same shape as
   `databricks bundle init` produces.
 - `src/hello_agent.py` — a minimal MLflow pyfunc agent.
 - `notebooks/register_agent.py` — one-time setup that registers the agent

@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this project. Tool-agnostic — app
 
 ## What this project is
 
-An AgentOps Stacks v2 project: a Databricks Asset Bundle scaffold for production-ready AI solutions. The structure, CI/CD wiring, and Unity Catalog configuration are pre-built; the user develops their AI solution on top.
+An AgentOps Stacks project: a Databricks Asset Bundle scaffold for production-ready AI solutions. The structure, CI/CD wiring, and Unity Catalog configuration are pre-built; the user develops their AI solution on top.
 
 ## Project structure
 
@@ -67,7 +67,7 @@ Artifacts are logged to the UC volume defined in `resources/volumes.yml` automat
 
 ## Recommended next steps
 
-This is a fresh AgentOps Stacks v2 scaffold. The CI/CD pipelines are wired but the production patterns below are not yet applied — they're applied as the solution develops.
+This is a fresh AgentOps Stacks scaffold. The CI/CD pipelines are wired but the production patterns below are not yet applied — they're applied as the solution develops.
 
 ### Patterns to apply (proactively offer these to the user)
 

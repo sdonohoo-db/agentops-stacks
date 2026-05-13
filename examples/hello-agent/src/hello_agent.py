@@ -1,4 +1,4 @@
-"""Minimal demo agent for the agentops-stacks v2 eval pattern.
+"""Minimal demo agent for the agentops-stacks eval pattern.
 
 A deliberately trivial agent that echoes the user's input. It exists only
 to demonstrate the closed loop (register -> evaluate -> gate) end-to-end —
