@@ -4,6 +4,7 @@
 
 # Working scratchpad — plans, notes, working files. Never committed.
 /.local/
+/projectdocs/
 
 # local bundle files
 **/.databricks/*
