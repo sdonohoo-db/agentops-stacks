@@ -29,9 +29,10 @@ the production patterns applied against it:
   patterns applied to this specific solution
 - `README.md` — what this example demonstrates and the recipe to reproduce it
 
-Examples are the development testbed for production patterns: the pattern
-contracts in [`projectdocs/patterns/`](../projectdocs/patterns/) describe
-*what* each pattern is, and the examples here are the worked instances.
+Examples are the development testbed for production patterns. Each example
+demonstrates a specific pattern (eval gates, governance posture, monitoring,
+feedback loops) applied to a concrete agent, so the pattern contracts can be
+exercised end-to-end before being formalized into authoring skills.
 
 ## How to adopt an example
 
