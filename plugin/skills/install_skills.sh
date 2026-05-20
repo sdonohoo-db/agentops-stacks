@@ -2,19 +2,17 @@
 #
 # agentops-stacks plugin installer
 #
-# Installs the agentops-stacks skill into a project (.claude/skills/agentops-stacks/),
-# bundling the canonical DAB template tree, library, and schema alongside the
-# skill so the renderer is self-contained.
+# Installs the agentops-stacks skill (SKILL.md only) into a project at
+# .claude/skills/agentops-stacks/. The skill shells out to `databricks bundle
+# init` against the agentops-stacks repo — the template tree and schema live
+# at the repo root, not next to the skill.
 #
-# Mirrors the ai-dev-kit databricks-skills installer pattern:
+# Usage:
 #   ./install_skills.sh                              # install from local repo
 #   ./install_skills.sh --install-to-genie           # also upload to workspace
 #   ./install_skills.sh --install-to-genie --profile prod
 #   ./install_skills.sh --list
 #   ./install_skills.sh --help
-#
-# Remote install (curl) ships once the project lands on the public repo;
-# until then, install from a local clone.
 
 set -e
 
@@ -29,8 +27,6 @@ SKILLS_DIR=".claude/skills"
 INSTALL_TO_GENIE=false
 DB_PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Repo root is two levels up from plugin/skills/.
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 show_help() {
     echo -e "${BLUE}agentops-stacks Skills Installer${NC}"
@@ -71,31 +67,49 @@ install_agentops_stacks_skill() {
         echo -e "${RED}Error: SKILL.md not found at $src${NC}"
         return 1
     fi
-    if [ ! -f "$src/render.py" ]; then
-        echo -e "${RED}Error: render.py not found at $src${NC}"
-        return 1
-    fi
-    if [ ! -d "$REPO_ROOT/template" ]; then
-        echo -e "${RED}Error: template/ not found at $REPO_ROOT/template${NC}"
-        return 1
-    fi
 
     rm -rf "$dest"
     mkdir -p "$dest"
 
     cp "$src/SKILL.md" "$dest/SKILL.md"
-    cp "$src/render.py" "$dest/render.py"
-    cp "$REPO_ROOT/databricks_template_schema.json" "$dest/databricks_template_schema.json"
-    cp -R "$REPO_ROOT/template" "$dest/template"
-    if [ -d "$REPO_ROOT/library" ]; then
-        cp -R "$REPO_ROOT/library" "$dest/library"
-    fi
 
     echo -e "  ${GREEN}✓${NC} SKILL.md"
-    echo -e "  ${GREEN}✓${NC} render.py"
-    echo -e "  ${GREEN}✓${NC} databricks_template_schema.json"
-    echo -e "  ${GREEN}✓${NC} template/ (bundled)"
-    [ -d "$dest/library" ] && echo -e "  ${GREEN}✓${NC} library/ (bundled)"
+}
+
+check_prereqs() {
+    local missing=()
+
+    if ! command -v databricks >/dev/null 2>&1; then
+        missing+=("Databricks CLI (https://docs.databricks.com/dev-tools/cli/install.html)")
+    fi
+
+    # ai-dev-kit is a soft prereq — needed for post-scaffold work but not for
+    # the scaffold step itself. Best-effort detection across plugin install
+    # layouts (Claude Code plugin cache, vibe marketplace, explicit skills).
+    local adk_found=false
+    for candidate in \
+        "$HOME/.claude/plugins/cache"/*/databricks-ai-dev-kit \
+        "$HOME/.vibe/marketplace/plugins/databricks-ai-dev-kit" \
+        ".claude/skills/databricks-bundles" \
+        ".claude/skills/databricks-mlflow-evaluation"; do
+        if [ -e "$candidate" ]; then
+            adk_found=true
+            break
+        fi
+    done
+    if [ "$adk_found" = false ]; then
+        missing+=("ai-dev-kit plugin (post-scaffold workflows route to its skills)")
+    fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${YELLOW}Prerequisites not detected:${NC}"
+        for item in "${missing[@]}"; do
+            echo -e "  - $item"
+        done
+        echo -e "${YELLOW}Install both before using the scaffold skill. The installer will continue.${NC}"
+        echo ""
+    fi
 }
 
 upload_skill_to_genie_workspace() {
@@ -113,24 +127,9 @@ upload_skill_to_genie_workspace() {
 
     echo -e "  ${GREEN}Uploading${NC} $skill_name"
     databricks workspace mkdirs "$skills_path/$skill_name" --profile "$db_profile" 2>/dev/null || true
-
-    # Upload everything under the skill dir, excluding only VCS junk. Filtering
-    # by extension dropped placeholder files (e.g. src/.gitkeep) and silently
-    # broke the rendered output, so we no-allowlist and exclude known junk.
-    while IFS= read -r -d '' file; do
-        rel_path="${file#$skill_dir/}"
-        dest_path="$skills_path/$skill_name/$rel_path"
-        parent_dir=$(dirname "$dest_path")
-        if [[ "$parent_dir" != "$skills_path/$skill_name" ]]; then
-            databricks workspace mkdirs "$parent_dir" --profile "$db_profile" 2>/dev/null || true
-        fi
-        databricks workspace import "$dest_path" --file "$file" --profile "$db_profile" --format AUTO --overwrite 2>/dev/null || true
-    done < <(find "$skill_dir" -type f \
-        -not -path '*/.git/*' \
-        -not -path '*/__pycache__/*' \
-        -not -name '*.pyc' \
-        -not -name '.DS_Store' \
-        -print0)
+    databricks workspace import "$skills_path/$skill_name/SKILL.md" \
+        --file "$skill_dir/SKILL.md" --profile "$db_profile" \
+        --format AUTO --overwrite 2>/dev/null || true
 }
 
 install_skills_to_genie_workspace() {
@@ -237,19 +236,19 @@ if [ ! -d ".git" ] && [ ! -f "pyproject.toml" ] && [ ! -f "package.json" ] && [ 
     fi
 fi
 
+check_prereqs
+
 if [ ! -d "$SKILLS_DIR" ]; then
     echo -e "${GREEN}Creating $SKILLS_DIR directory...${NC}"
     mkdir -p "$SKILLS_DIR"
 fi
 
-echo -e "${BLUE}Installing from: ${REPO_ROOT}${NC}"
-echo ""
 echo -e "${GREEN}Installing agentops-stacks skill...${NC}"
 install_agentops_stacks_skill
 
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}Installation complete!${NC}"
+echo -e "${GREEN}Installation complete.${NC}"
 echo -e "${BLUE}Skill installed to: ${SKILLS_DIR}/${SKILL_NAME}${NC}"
 echo ""
 

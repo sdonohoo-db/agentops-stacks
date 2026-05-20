@@ -6,6 +6,9 @@
 /.local/
 /projectdocs/
 
+# Claude Code working dir (per-project settings, local skill installs).
+/.claude/
+
 # local bundle files
 **/.databricks/*
 

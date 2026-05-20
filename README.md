@@ -1,6 +1,6 @@
 # agentops-stacks
 
-A Databricks Asset Bundle (DAB) template + plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
+A Databricks Asset Bundle (DAB) template + coding-assistant plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
 
 Currently published from the `sdonohoo-db/agentops-stacks` fork while in development. Will move to `databricks-solutions/agentops-stacks` once stabilized.
 
@@ -20,36 +20,50 @@ Application code, pipelines, model serving, jobs, and apps go under `src/` and n
 
 ## Prerequisites
 
-- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) v0.295.0 or later
+- [Databricks CLI](https://docs.databricks.com/dev-tools/cli/install.html) — recent enough to support the direct deployment engine (any release from the past 6 months is safe)
 - [uv](https://docs.astral.sh/uv/) package manager
-- A Databricks workspace with Unity Catalog enabled (one catalog per environment — see [docs/setup.md](template/{{.input_root_dir}}/docs/setup.md.tmpl))
+- A Databricks workspace with Unity Catalog enabled (one catalog per environment — see `docs/setup.md` in the rendered project)
+- [ai-dev-kit plugin](https://github.com/databricks-solutions/ai-dev-kit) — required for the post-scaffold workflow (eval gates, monitoring, governance). Install before the plugin's post-scaffold skills land
 
 ---
 
-## Two ways to scaffold
+## How to scaffold
 
-Both paths produce byte-identical project structure. Pick whichever fits your workflow.
+There's one engine — `databricks bundle init` — and two ways to drive it.
 
-### Path 1: Databricks CLI
+### Run the CLI directly
 
-Works anywhere `databricks` runs — local terminal, CI, or the Genie Code web terminal.
+Works anywhere `databricks` runs — local terminal, CI, or Genie Code.
 
 ```bash
 databricks bundle init https://github.com/sdonohoo-db/agentops-stacks
 ```
 
-### Path 2: agentops-stacks plugin
+The CLI prompts for `project_name`, `cloud`, and `cicd_platform`. For non-interactive runs, supply the values via `--config-file <path>`:
 
-Renders the same scaffold from inside a coding assistant — Claude Code, Cursor, or Genie Code — without leaving the assistant. Useful when you want a conversational scaffold and follow-up help.
+```bash
+cat > inputs.json <<'EOF'
+{
+  "input_project_name": "my_agent",
+  "input_cloud": "aws",
+  "input_cicd_platform": "github_actions"
+}
+EOF
+databricks bundle init https://github.com/sdonohoo-db/agentops-stacks --config-file inputs.json
+```
+
+### Drive the CLI from a coding assistant
+
+The agentops-stacks plugin is a conversational UX layer over `bundle init`. It collects inputs through the assistant, writes the config file, runs the CLI, and surfaces the result. Use it when you want a guided scaffold and follow-up help from the assistant.
 
 See [plugin/README.md](plugin/README.md) for install and usage. Two install flavors:
 
 - **Genie Code install** — open `plugin/skills/install_genie_code_skills.py` as a notebook in your workspace and run all cells. The skill is then available in Genie Code.
 - **Local install** — clone this repo, run `./plugin/skills/install_skills.sh` from your project root. The skill is then available in Claude Code or Cursor.
 
-### Getting started with the plugin
+### Using the plugin
 
-Once installed, the plugin is invoked by your coding assistant. There's nothing to call directly — you describe what you want and the assistant runs the skill.
+Once installed, the plugin is invoked by your coding assistant. There's nothing to call directly — describe what you want and the assistant runs the skill.
 
 1. **Open your coding assistant** in the target directory:
    - **Genie Code** — pre-create the destination via the workspace UI (Workspace → Add → Git folder for a repo-backed project, or just create an empty folder under `/Workspace/Users/<you>/`), then open Genie Code from inside that directory.
@@ -59,17 +73,13 @@ Once installed, the plugin is invoked by your coding assistant. There's nothing 
    - Type `/init-agentops-stacks` (Claude Code / Cursor only), or
    - Say "scaffold a new agentops-stacks project" — the assistant matches the skill's description and starts the flow.
 
-3. **Answer the prompts.** The skill asks for project name, cloud (aws / azure / gcp), CI/CD platform, and destination path. Defaults are sensible — confirm or adjust.
+3. **Answer the prompts.** The skill asks for project name, cloud (aws / azure / gcp), CI/CD platform, and destination. Defaults are sensible — confirm or adjust.
 
-4. **Approve the render.** In Genie Code, you'll see a one-time "Code execution blocked for safety reasons" prompt because the skill imports a module from `/Workspace` and writes files. This is a pattern-based heuristic, not a real safety issue — click **Run** to proceed. In Claude Code / Cursor, the scaffold runs without that prompt.
-
-5. **Follow the next-steps message.** The skill prints the same post-scaffold sequence shown in [After scaffolding](#after-scaffolding) below — `uv sync`, fill in `databricks.yml` workspace hosts, validate, deploy.
+4. **Follow the next-steps message.** The CLI prints the post-scaffold sequence — `uv sync`, fill in `databricks.yml` workspace hosts, validate, deploy. The assistant relays it unchanged.
 
 ---
 
 ## After scaffolding
-
-Whichever path you took, the next steps are the same:
 
 ```bash
 cd <project_name>
@@ -78,13 +88,13 @@ databricks bundle validate -t dev --profile <dev-profile>
 databricks bundle deploy -t dev --profile <dev-profile>
 ```
 
-Set workspace hosts and Unity Catalog grants per [docs/setup.md](template/{{.input_root_dir}}/docs/setup.md.tmpl) before deploying.
+Set workspace hosts and Unity Catalog grants per `docs/setup.md` in the rendered project before deploying.
 
 ## Production patterns (TBD — plugin skills not yet built)
 
 The CI/CD workflows already have hooks for the production patterns — for example, the prod-deploy workflow auto-detects `evaluation/thresholds.yml` and runs `evaluation/gate.py` if present — but the plugin skills that author the patterns aren't built yet.
 
-Planned (delivery sequence in [projectdocs/implementation-plan.md](projectdocs/implementation-plan.md)):
+Planned skills:
 
 - **Eval gates** — `evaluation/thresholds.yml` + `evaluation/gate.py`. CI hook in place; authoring skill TBD.
 - **Governance posture** — `governance/posture.md` + `governance/data_flows.md`. Prod-promotion check in place; authoring skill TBD.
@@ -93,15 +103,6 @@ Planned (delivery sequence in [projectdocs/implementation-plan.md](projectdocs/i
 - **Adoption of existing projects** — `/adopt` workflow that detects what an existing project already has and adds only what's missing (manifest marker, CI/CD wiring, UC conventions). Skill TBD.
 
 Until the skills ship, you can hand-roll any of these into a scaffolded project — the CI/CD hooks will pick them up.
-
-## Status
-
-agentops-stacks is dual-channel:
-
-- **DAB template** (this repo) — canonical scaffold. Generates the same project shape from any environment that runs `databricks bundle init`.
-- **agentops-stacks plugin** (`plugin/`) — portable resident copilot for authoring projects from inside a coding assistant. Renders byte-identical output to `bundle init` across all four cloud × CI/CD combinations. Works in Claude Code, Cursor, and Genie Code.
-
-Plugin and template share the same scaffold contract (`.agentops-stacks/manifest.yml`). The template stands on its own — the plugin is additive.
 
 ## Documentation
 
