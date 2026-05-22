@@ -88,6 +88,8 @@ databricks bundle deploy -t dev --profile <dev-profile>
 
 Set workspace hosts and Unity Catalog grants per `docs/setup.md` in the rendered project before deploying.
 
+If the bundle was scaffolded inside a Databricks **Git folder** in the workspace (the recommended path for Genie Code users), the workspace UI also surfaces a **Deployments panel** on the bundle that lets you pick a target and deploy with one click — no terminal required. This matches the layout produced by the workspace UI's native "Create → Bundle" flow.
+
 ## Production patterns (TBD — plugin skills not yet built)
 
 The CI/CD workflows already have hooks for the production patterns — for example, the prod-deploy workflow auto-detects `evaluation/thresholds.yml` and runs `evaluation/gate.py` if present — but the plugin skills that author the patterns aren't built yet.

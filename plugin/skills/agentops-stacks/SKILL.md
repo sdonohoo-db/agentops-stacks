@@ -48,10 +48,15 @@ For each input:
 - **Options:** `github_actions`, `github_actions_for_github_enterprise_servers`, `azure_devops`, `gitlab`.
 - **Determines:** which CI/CD directory ships in the scaffold.
 
-### 4. destination (path, optional)
+### 4. destination (path, required to be a Git folder)
 
-- **Default:** the current working directory.
-- **Behavior:** the CLI creates `<destination>/<project_name>/`. Don't ask the user to pre-create the project directory — `bundle init` handles it.
+- **Default:** the current working directory if it is a Git folder; otherwise prompt.
+- **Constraint:** the destination must be (or be inside) a Databricks Git folder. The CLI creates `<destination>/<project_name>/`. Don't ask the user to pre-create the project directory — `bundle init` handles that part.
+- **Why a Git folder:** matches the layout produced by the Databricks workspace UI's "Create → Bundle" flow. When the scaffold lands inside a Git folder, the workspace UI surfaces a Deployments panel on the bundle that lets the user deploy to `dev` with one click — no CLI required. Scaffolding into a non-Git workspace folder still works for CLI-driven deploys but loses the UI Deployments path.
+- **How to check:**
+  - Claude Code / Cursor: `git rev-parse --show-toplevel` succeeds inside a Git folder, fails outside.
+  - Genie Code: ask the user to confirm. The destination should be a folder they created via Workspace → Add → Git folder (or an existing such folder). If unsure, instruct them to create one via the workspace UI before continuing.
+- **If the destination isn't a Git folder:** warn the user that the Workspace UI Deployments panel won't appear, offer to proceed anyway, and route them to CLI-only deploy in the next-steps message.
 
 ### Final confirmation
 
@@ -93,15 +98,16 @@ Only proceed on explicit confirmation. If the user wants to change any input, re
 
 ## Genie Code workspace flow
 
-The typical flow when running in Genie Code:
+The canonical flow when running in Genie Code:
 
-1. User creates an empty repo in Databricks Repos via the workspace UI (e.g., `/Workspace/Users/<user>/my-agent/`).
-2. User opens Genie Code from that directory and asks to scaffold.
-3. Collect the four inputs above. Set `destination` to the parent of where the user wants the project (typically the workspace home, `/Workspace/Users/<user>/`).
+1. User creates an empty Git folder in the workspace via Workspace → Add → Git folder, pointing at an empty target repo (e.g., `/Workspace/Users/<user>/my-agent/`). This step is required — the scaffold must land inside a Git folder for the workspace UI Deployments panel to appear.
+2. User opens Genie Code from inside that Git folder and asks to scaffold.
+3. Collect the four inputs above. Set `destination` to the Git folder itself (the bundle will be created as `<git-folder>/<project_name>/` — matching the layout produced by Workspace UI's "Create → Bundle").
 4. Run `databricks bundle init` with the git URL form (no local clone required in the workspace).
-5. The scaffold lands at `<destination>/<project_name>/`. The user commits and pushes through the Repos UI.
+5. The scaffold lands at `<destination>/<project_name>/`. The user commits and pushes through the workspace UI's Git controls.
+6. After scaffolding, the user can deploy via either the workspace UI's Deployments panel on the bundle (Targets → `dev` → Deploy) or the CLI (`databricks bundle deploy -t dev`).
 
-Git CLI is available in Genie Code, but repo lifecycle (create, commit, push) is currently more reliable through the workspace UI. Treat "repo exists in the workspace" as a prerequisite and instruct the user to set it up via the UI if they haven't.
+Git CLI is available in Genie Code, but repo lifecycle (create, commit, push) is more reliable through the workspace UI. Treat "Git folder exists in the workspace" as a hard prerequisite and instruct the user to set it up via the UI if they haven't.
 
 ## Scaffold-in-place limitation
 
@@ -116,6 +122,11 @@ Surface these next steps to the user, derived from the CLI's own success message
 3. Set workspace hosts and Unity Catalog grants — see `docs/setup.md` in the rendered project
 4. `uv sync` (generates `uv.lock` — must be committed)
 5. `databricks bundle validate -t dev`
+
+**Two paths to deploy from here:**
+
+- **Workspace UI (Genie Code default).** If the scaffold landed inside a Git folder, open the bundle in the workspace UI — the Deployments panel on the bundle view lets you pick a target (`dev`) and Deploy with one click. No terminal needed.
+- **CLI.** `databricks bundle deploy -t dev` from the bundle's root directory. Works on every surface.
 
 For the development work that follows (agent code, evaluation, monitoring), route to ai-dev-kit skills:
 - `databricks-bundles` — bundle authoring, deployment, lifecycle
@@ -143,6 +154,7 @@ Do not attempt step 5 (`databricks bundle validate`) from within this skill — 
 | Output directory not empty | `bundle init` refuses to overwrite. Pick an empty path or have the user move/remove existing files. |
 | `Error: template path does not contain databricks_template_schema.json` | Wrong source path. The schema must be at the root of the template repo. Use the git URL form if the local-path resolution is uncertain. |
 | Genie Code: `databricks --version` returns nothing | Expected — the Genie Code CLI wrapper doesn't expose `--version`. Skip the version check and proceed; surface `bundle init` errors if anything is wrong. |
+| Workspace UI Deployments panel doesn't appear on the bundle | Bundle wasn't created inside a Git folder. The workspace UI only surfaces the Deployments panel for bundles under Git folders. Move the scaffold into a Git folder, or use the CLI to deploy (`databricks bundle deploy -t dev`). |
 
 ## Reference files
 
