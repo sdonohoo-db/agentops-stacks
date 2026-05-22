@@ -90,19 +90,7 @@ Set workspace hosts and Unity Catalog grants per `docs/setup.md` in the rendered
 
 If the bundle was scaffolded inside a Databricks **Git folder** in the workspace (the recommended path for Genie Code users), the workspace UI also surfaces a **Deployments panel** on the bundle that lets you pick a target and deploy with one click — no terminal required. This matches the layout produced by the workspace UI's native "Create → Bundle" flow.
 
-## Production patterns (TBD — plugin skills not yet built)
-
-The CI/CD workflows already have hooks for the production patterns — for example, the prod-deploy workflow auto-detects `evaluation/thresholds.yml` and runs `evaluation/gate.py` if present — but the plugin skills that author the patterns aren't built yet.
-
-Planned skills:
-
-- **Eval gates** — `evaluation/thresholds.yml` + `evaluation/gate.py`. CI hook in place; authoring skill TBD.
-- **Governance posture** — `governance/posture.md` + `governance/data_flows.md`. Prod-promotion check in place; authoring skill TBD.
-- **Monitoring** — trace destination, alert rules, dashboards. Skill TBD.
-- **Feedback loops** — end-user feedback UI, SME labeling, batch inference for offline eval. Skill TBD.
-- **Adoption of existing projects** — `/adopt` workflow that detects what an existing project already has and adds only what's missing (manifest marker, CI/CD wiring, UC conventions). Skill TBD.
-
-Until the skills ship, you can hand-roll any of these into a scaffolded project — the CI/CD hooks will pick them up.
+> **Coming next:** production lifecycle patterns (evaluation gates, governance posture, monitoring, feedback loops) are in active design — they'll ship as Innovate-driven workflows on top of the scaffold. Subscribe to releases for updates.
 
 ## Documentation
 
