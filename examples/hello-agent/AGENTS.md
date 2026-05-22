@@ -4,7 +4,7 @@ Instructions for AI coding agents working in this project. Tool-agnostic — app
 
 ## What this project is
 
-An AgentOps Stacks project: a Databricks Asset Bundle scaffold for production-ready AI solutions. The structure, CI/CD wiring, and Unity Catalog configuration are pre-built; the user develops their AI solution on top.
+An AgentOps Stacks project: a Declarative Automation Bundle scaffold for production-ready AI solutions. The structure, CI/CD wiring, and Unity Catalog configuration are pre-built; the user develops their AI solution on top.
 
 ## Project structure
 
