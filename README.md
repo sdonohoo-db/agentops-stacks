@@ -2,8 +2,6 @@
 
 A Databricks Asset Bundle (DAB) template + coding-assistant plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
 
-Currently published from the `sdonohoo-db/agentops-stacks` fork while in development. Will move to `databricks-solutions/agentops-stacks` once stabilized.
-
 ## What you get
 
 agentops-stacks generates the production envelope for an AI project on Databricks. The scaffold includes:
@@ -36,7 +34,7 @@ There's one engine — `databricks bundle init` — and two ways to drive it.
 Works anywhere `databricks` runs — local terminal, CI, or Genie Code.
 
 ```bash
-databricks bundle init https://github.com/sdonohoo-db/agentops-stacks
+databricks bundle init https://github.com/databricks-solutions/agentops-stacks
 ```
 
 The CLI prompts for `project_name`, `cloud`, and `cicd_platform`. For non-interactive runs, supply the values via `--config-file <path>`:
@@ -49,7 +47,7 @@ cat > inputs.json <<'EOF'
   "input_cicd_platform": "github_actions"
 }
 EOF
-databricks bundle init https://github.com/sdonohoo-db/agentops-stacks --config-file inputs.json
+databricks bundle init https://github.com/databricks-solutions/agentops-stacks --config-file inputs.json
 ```
 
 ### Drive the CLI from a coding assistant
