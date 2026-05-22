@@ -77,7 +77,7 @@ Only proceed on explicit confirmation. If the user wants to change any input, re
 
 3. **Run `bundle init`** pointing at the agentops-stacks template:
    ```bash
-   databricks bundle init https://github.com/sdonohoo-db/agentops-stacks \
+   databricks bundle init https://github.com/databricks-solutions/agentops-stacks \
      --config-file <tempfile> \
      --output-dir <destination>
    ```
@@ -148,4 +148,4 @@ Do not attempt step 5 (`databricks bundle validate`) from within this skill — 
 
 - `databricks_template_schema.json` (at the agentops-stacks repo root) — input schema with defaults, validation patterns, and the success message.
 - `template/` (at the agentops-stacks repo root) — the canonical template tree the CLI renders against.
-- Repo: <https://github.com/sdonohoo-db/agentops-stacks>
+- Repo: <https://github.com/databricks-solutions/agentops-stacks>

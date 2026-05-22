@@ -28,7 +28,7 @@ Prerequisites: a Databricks workspace, write access to your own `/Workspace/User
 From a local clone of this repo:
 
 ```bash
-git clone https://github.com/sdonohoo-db/agentops-stacks.git
+git clone https://github.com/databricks-solutions/agentops-stacks.git
 cd agentops-stacks
 ./plugin/skills/install_skills.sh --install-to-genie --profile <your-databricks-profile>
 ```
@@ -40,7 +40,7 @@ The installer lands `.claude/skills/agentops-stacks/SKILL.md` locally, then uplo
 If you can't run a script locally:
 
 1. In your workspace, open [`plugin/skills/install_genie_code_skills.py`](skills/install_genie_code_skills.py) as a notebook. The simplest way is to clone this repo as a Git folder via Workspace → Add → Git folder, then open the file.
-2. Run all cells. The notebook pulls `SKILL.md` from GitHub and uploads it to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. Defaults: `GITHUB_OWNER=sdonohoo-db`, `GITHUB_REF=main`. To install from a branch, set the `AGENTOPS_GITHUB_REF` env var when running as a Python script, or edit the configuration cell.
+2. Run all cells. The notebook pulls `SKILL.md` from GitHub and uploads it to `/Workspace/Users/<you>/.assistant/skills/agentops-stacks/`. Defaults: `GITHUB_OWNER=databricks-solutions`, `GITHUB_REF=main`. To install from a branch, set the `AGENTOPS_GITHUB_REF` env var when running as a Python script, or edit the configuration cell.
 
 ### Use it
 
@@ -50,7 +50,7 @@ After either install:
 2. Open Genie Code from inside that directory (or its parent) and say "scaffold a new agentops-stacks project."
 3. The skill collects four inputs one at a time (project name, cloud, CI/CD platform, destination), writes a temp config file under `/tmp/`, and runs:
    ```
-   databricks bundle init https://github.com/sdonohoo-db/agentops-stacks \
+   databricks bundle init https://github.com/databricks-solutions/agentops-stacks \
      --config-file <tmp> --output-dir <destination>
    ```
 4. The CLI's success message and next-steps prints verbatim.
@@ -61,7 +61,7 @@ Prerequisites: `databricks` CLI installed, a coding assistant that loads `.claud
 
 1. Clone this repo:
    ```bash
-   git clone https://github.com/sdonohoo-db/agentops-stacks.git
+   git clone https://github.com/databricks-solutions/agentops-stacks.git
    ```
 
 2. From your *target project's* root directory, run the installer pointing at the cloned repo:

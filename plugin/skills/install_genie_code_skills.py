@@ -22,15 +22,12 @@
 # COMMAND ----------
 
 # -- Configuration ----------------------------------------------------------
-# Source repo and ref. Currently published from the sdonohoo-db fork; will
-# move to databricks-solutions/agentops-stacks once stabilized.
-#
-# GITHUB_REF defaults to "main" and can be overridden via the
-# AGENTOPS_GITHUB_REF env var when running this file as a regular Python
-# script (useful for testing branches before merging).
+# Source repo and ref. GITHUB_REF defaults to "main" and can be overridden
+# via the AGENTOPS_GITHUB_REF env var when running this file as a regular
+# Python script (useful for testing branches before merging).
 import os
 
-GITHUB_OWNER = "sdonohoo-db"
+GITHUB_OWNER = "databricks-solutions"
 GITHUB_REPO = "agentops-stacks"
 GITHUB_REF = os.environ.get("AGENTOPS_GITHUB_REF", "main")
 
