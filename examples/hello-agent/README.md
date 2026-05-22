@@ -1,6 +1,6 @@
 # hello_agent
 
-AgentOps Stacks project — a Databricks Asset Bundle scaffold for production-ready AI solutions.
+AgentOps Stacks project — a Declarative Automation Bundle scaffold for production-ready AI solutions.
 
 This project ships the structure, CI/CD wiring, and Unity Catalog configuration to take an AI solution to production. Build your solution under `src/` and apply evaluation, governance, and monitoring patterns as you go — manually, with a coding assistant, or via the agentops-stacks plugin.
 
@@ -47,6 +47,6 @@ An agentops-stacks plugin — portable across Claude Code, Cursor, and Genie Cod
 
 ## Resources
 
-- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [Declarative Automation Bundles](https://docs.databricks.com/dev-tools/bundles/)
 - [MLflow 3 + Unity Catalog](https://docs.databricks.com/mlflow3/)
 - [Direct deployment engine](https://docs.databricks.com/dev-tools/bundles/direct)

@@ -1,6 +1,6 @@
 ---
 name: agentops-stacks
-description: Scaffold a new AgentOps Stacks project — a Databricks Asset Bundle (DAB) with dev/staging/prod targets, Unity Catalog conventions, and CI/CD wiring for GitHub Actions, GitLab, or Azure DevOps across AWS, Azure, or GCP. Use when the user wants to start a new AI project on Databricks, generate a DAB scaffold, or set up CI/CD for an agent/ML project. Triggers on "scaffold a new agentops project", "new DAB with CI/CD", "start a new Databricks AI project", "create agentops-stacks project".
+description: Scaffold a new AgentOps Stacks project — a Declarative Automation Bundle (DAB) with dev/staging/prod targets, Unity Catalog conventions, and CI/CD wiring for GitHub Actions, GitLab, or Azure DevOps across AWS, Azure, or GCP. Use when the user wants to start a new AI project on Databricks, generate a DAB scaffold, or set up CI/CD for an agent/ML project. Triggers on "scaffold a new agentops project", "new DAB with CI/CD", "start a new Databricks AI project", "create agentops-stacks project".
 ---
 
 # agentops-stacks — Project Scaffold

@@ -1,6 +1,6 @@
 # CI/CD — GitHub Actions
 
-GitHub Actions workflows for validating and deploying **hello_agent** as a Databricks Asset Bundle.
+GitHub Actions workflows for validating and deploying **hello_agent** as a Declarative Automation Bundle.
 
 ## Workflows
 

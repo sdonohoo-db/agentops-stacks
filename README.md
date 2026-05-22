@@ -1,12 +1,12 @@
 # agentops-stacks
 
-A Databricks Asset Bundle (DAB) template + coding-assistant plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
+A Declarative Automation Bundle (DAB) template + coding-assistant plugin for AI projects on Databricks. Scaffolds the production envelope — dev/staging/prod targets, Unity Catalog conventions, CI/CD wiring for four platforms — and adds production patterns (evaluation gates, governance posture, monitoring, feedback loops) as the project matures.
 
 ## What you get
 
 agentops-stacks generates the production envelope for an AI project on Databricks. The scaffold includes:
 
-- Three-environment Databricks Asset Bundle (dev / staging / prod) with `direct` deployment engine
+- Three-environment Declarative Automation Bundle (dev / staging / prod) with `direct` deployment engine
 - One Unity Catalog catalog per environment, plus a schema and managed volume for artifacts
 - MLflow experiment configured to land artifacts in the volume
 - CI/CD wiring for one of four platforms — GitHub Actions, GitHub Actions for GHES, GitLab, or Azure DevOps — with PR validation, staging deploy on merge to `main`, and prod deploy on `v*` tag
@@ -14,7 +14,7 @@ agentops-stacks generates the production envelope for an AI project on Databrick
 - `AGENTS.md` with conventions for coding assistants
 - `docs/setup.md` covering UC catalogs, CLI profiles, and CI/CD credentials
 
-Application code, pipelines, model serving, jobs, and apps go under `src/` and new files in `resources/`. Familiarity with Databricks Asset Bundles and CI/CD pipelines is assumed.
+Application code, pipelines, model serving, jobs, and apps go under `src/` and new files in `resources/`. Familiarity with Declarative Automation Bundles and CI/CD pipelines is assumed.
 
 ## Prerequisites
 
@@ -107,5 +107,5 @@ Until the skills ship, you can hand-roll any of these into a scaffolded project 
 - `template/{{.input_root_dir}}/README.md.tmpl` — what a rendered project looks like
 - `template/{{.input_root_dir}}/AGENTS.md.tmpl` — conventions and guidance for coding agents
 - `template/{{.input_root_dir}}/docs/setup.md.tmpl` — end-to-end configuration guide
-- [Databricks Asset Bundles](https://docs.databricks.com/dev-tools/bundles/)
+- [Declarative Automation Bundles](https://docs.databricks.com/dev-tools/bundles/)
 - [MLflow 3 + Unity Catalog](https://docs.databricks.com/mlflow3/)

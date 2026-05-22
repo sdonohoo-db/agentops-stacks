@@ -1,6 +1,6 @@
 # AgentOps Stacks
 
-A Databricks Asset Bundle (DAB) template plus a portable coding-assistant plugin
+A Declarative Automation Bundle (DAB) template plus a portable coding-assistant plugin
 that scaffold production-ready AI projects on Databricks and guide them through
 orchestration, governance, and lifecycle as the solution develops. Agent code,
 data pipelines, and platform resources come from coding assistants (Claude Code,
