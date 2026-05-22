@@ -46,14 +46,14 @@ If you can't run a script locally:
 
 After either install:
 
-1. Pre-create the destination directory where you want the scaffold to land. For repo-backed projects, use the workspace UI: Workspace → Add → Git folder → paste the empty target repo URL → clone. For non-repo scratch projects, create an empty folder under `/Workspace/Users/<you>/`.
-2. Open Genie Code from inside that directory (or its parent) and say "scaffold a new agentops-stacks project."
+1. Pre-create a **Git folder** in the workspace via Workspace → Add → Git folder, pointing at an empty target repo. The bundle must land inside a Git folder for the workspace UI's Deployments panel to appear on it post-scaffold — matching the layout produced by Workspace UI's own "Create → Bundle" flow.
+2. Open Genie Code from inside that Git folder and say "scaffold a new agentops-stacks project."
 3. The skill collects four inputs one at a time (project name, cloud, CI/CD platform, destination), writes a temp config file under `/tmp/`, and runs:
    ```
    databricks bundle init https://github.com/databricks-solutions/agentops-stacks \
      --config-file <tmp> --output-dir <destination>
    ```
-4. The CLI's success message and next-steps prints verbatim.
+4. The CLI's success message and next-steps prints verbatim. After that, you can deploy via the workspace UI's Deployments panel on the bundle (Targets → `dev` → Deploy) or via `databricks bundle deploy -t dev` in the terminal.
 
 ## Try it — Claude Code or Cursor
 
@@ -95,6 +95,6 @@ The skill is a single `SKILL.md`. There's no Python renderer and no vendored tem
 ## Known UX notes
 
 - **Genie Code safety heuristic.** Genie Code blocks programmatic file deletion (`os.remove`, `Path.unlink`) even for paths under `/tmp/`. The skill leaves its temp config file in place rather than cleaning it up, so the scaffold ends on the CLI's success message instead of a confusing "Code execution blocked" prompt. The OS cleans `/tmp/` on its own.
-- **Git workflow in Genie Code.** The git CLI is available in Genie Code, but repo lifecycle (create remote, commit, push) is currently more reliable through the workspace UI. The skill assumes you've set up the target repo / folder via the UI before scaffolding.
+- **Git workflow in Genie Code.** The git CLI is available in Genie Code, but repo lifecycle (create remote, commit, push) is currently more reliable through the workspace UI. The skill requires a Git folder as the destination — set up the target Git folder via the workspace UI before scaffolding.
 - **Scaffold-in-place limitation.** `databricks bundle init` always creates `<destination>/<project_name>/`. If you've pre-created a Git folder and want the scaffold contents at its root (instead of nested inside), you'll need to scaffold to a temp location and move the contents into place. See [SKILL.md](skills/agentops-stacks/SKILL.md) for details.
 - **CLI auth refresh.** On local surfaces, `bundle init` eagerly refreshes the default profile's token. If your token is expired, run `databricks auth login` before scaffolding (auth is required for the next step, `bundle validate`, anyway).
