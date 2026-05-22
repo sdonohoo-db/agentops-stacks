@@ -109,6 +109,8 @@ The canonical flow when running in Genie Code:
 
 Git CLI is available in Genie Code, but repo lifecycle (create, commit, push) is more reliable through the workspace UI. Treat "Git folder exists in the workspace" as a hard prerequisite and instruct the user to set it up via the UI if they haven't.
 
+A Git folder can host multiple bundles as sibling subdirectories — the Workspace UI's Deployments pane is scoped per-bundle, not per-Git-folder. Re-running this skill against the same Git folder with a different `project_name` creates a coexisting bundle alongside the existing ones; each bundle gets its own Deployments pane and deploys independently.
+
 ## Scaffold-in-place limitation
 
 `databricks bundle init` always creates `<destination>/<project_name>/`. There is no native flag to scaffold *into* an existing empty directory. If the user wants the scaffold contents at the root of an existing repo (instead of inside a subdirectory), scaffold to a temp location and `mv` the contents into place after. Don't attempt to outsmart the CLI with input_root_dir tricks — the path concatenation breaks in subtle ways.
