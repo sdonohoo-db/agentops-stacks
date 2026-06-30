@@ -1,0 +1,16 @@
+command: ["uv", "run", "python", "app/start_server.py"]
+
+env:
+  - name: CATALOG
+    value: "${var.catalog}"
+  - name: SCHEMA
+    value: "${var.schema}"
+  - name: LLM_ENDPOINT
+    value: "databricks-claude-sonnet-4"
+{{ if (eq .input_use_lakebase "yes") }}  - name: LAKEBASE_INSTANCE
+    value: "" # TODO: Set your Lakebase instance name
+  - name: LAKEBASE_HOST
+    value: "" # TODO: Set your Lakebase instance read-write DNS
+  - name: LAKEBASE_DB
+    value: "default"
+{{ end }}

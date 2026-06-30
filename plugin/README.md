@@ -4,15 +4,29 @@ A portable plugin that scaffolds AgentOps Stacks projects from inside a coding a
 
 The plugin and the [DAB template](../template/) share the same scaffold contract (`.agentops-stacks/manifest.yml`). The CLI alone is sufficient for scaffolding; the plugin is the additive on-ramp for users working inside a coding assistant.
 
-## What this plugin ships today
+## What this plugin ships
 
-- One skill: **`agentops-stacks`** — scaffolds a new project (DAB layout, dev/staging/prod targets, UC schema and volume, MLflow experiment, CI/CD wiring for one of GitHub Actions, GitHub Actions for GHES, GitLab, or Azure DevOps).
-- One command: **`/init-agentops-stacks`** — discoverability wrapper around the skill for Claude Code / Cursor users.
-- Installers under `skills/` that mirror [ai-dev-kit's pattern](https://github.com/databricks-solutions/ai-dev-kit#installation):
-  - `install_skills.sh` — CLI installer. Lands the skill into `.claude/skills/agentops-stacks/` locally, with optional `--install-to-genie` to also upload to the workspace.
-  - `install_genie_code_skills.py` — Databricks notebook for in-workspace installs without a local clone.
+### Skills
 
-Production patterns (evaluation gates, governance posture, monitoring, feedback loops) are not in this plugin yet. They land as separate skills as the project matures.
+| Skill | Trigger | What it does |
+|-------|---------|--------------|
+| **`agentops-stacks`** | `scaffold a new agentops project` | Scaffolds a new multi-agent LangGraph project (per-agent Databricks Apps, shared components, UC schema and volume, MLflow experiments, CI/CD wiring). One-time use at project start. |
+| **`agentops-lifecycle`** | `walk me through the agentops lifecycle` | Guides an existing scaffold through the complete Single-Account Single-Agent lifecycle — data prep, agent dev, eval gate, SME calibration, CI/CD promotion, batch eval baseline, and production monitoring. 10 steps across dev → staging → prod. |
+| **`add-agent`** | `add agent`, `new agent`, `create another agent` | Adds a new agent to an existing project — copies an existing agent as a template and wires it into `databricks.yml` and the manifest. |
+
+### Commands
+
+| Command | Skill |
+|---------|-------|
+| `/init-agentops-stacks` | `agentops-stacks` |
+| `/agentops-lifecycle` | `agentops-lifecycle` |
+| `/add-agent` | `add-agent` |
+
+### Installers
+
+Under `skills/`, mirroring [ai-dev-kit's pattern](https://github.com/databricks-solutions/ai-dev-kit#installation):
+- `install_skills.sh` — CLI installer. Lands skills into `.claude/skills/` locally, with optional `--install-to-genie` to also upload to the workspace.
+- `install_genie_code_skills.py` — Databricks notebook for in-workspace installs without a local clone.
 
 ## Prerequisites
 
@@ -48,7 +62,7 @@ After either install:
 
 1. Pre-create a **Git folder** in the workspace via Workspace → Add → Git folder, pointing at an empty target repo. The bundle must land inside a Git folder for the workspace UI's Deployments panel to appear on it post-scaffold — matching the layout produced by Workspace UI's own "Create → Bundle" flow.
 2. Open Genie Code from inside that Git folder and say "scaffold a new agentops-stacks project."
-3. The skill collects four inputs one at a time (project name, cloud, CI/CD platform, destination), writes a temp config file under `/tmp/`, and runs:
+3. The skill collects inputs across five phases (infrastructure, data sources, tools, evaluation, then confirm), writes a temp config file under `/tmp/`, and runs:
    ```
    databricks bundle init https://github.com/databricks-solutions/agentops-stacks \
      --config-file <tmp> --output-dir <destination>
@@ -82,15 +96,25 @@ Prerequisites: `databricks` CLI installed, a coding assistant that loads `.claud
 plugin/
 ├── README.md                                    # this file
 ├── commands/
-│   └── init-agentops-stacks.md                  # CC/Cursor slash command
+│   ├── init-agentops-stacks.md                  # scaffold command
+│   ├── agentops-lifecycle.md                    # lifecycle command
+│   └── common-issues.md                         # troubleshooting reference
 └── skills/
     ├── install_skills.sh                        # local + Genie upload installer
     ├── install_genie_code_skills.py             # in-workspace notebook installer
-    └── agentops-stacks/
-        └── SKILL.md                             # skill instructions for the assistant
+    ├── agentops-stacks/
+    │   ├── SKILL.md                             # scaffold skill (5-phase input collection)
+    │   └── reference/                           # post-scaffold, Genie Code, common issues docs
+    ├── agentops-lifecycle/
+    │   └── SKILL.md                             # lifecycle skill (10-step dev→prod guide)
+    └── add-agent/
+        └── SKILL.md                             # add-agent skill (wires new agent into existing project)
 ```
 
-The skill is a single `SKILL.md`. There's no Python renderer and no vendored template tree — `databricks bundle init` reads the template directly from this repo at scaffold time.
+Each skill is a single `SKILL.md`. There's no Python renderer and no vendored
+template tree — `databricks bundle init` reads the template directly from this
+repo at scaffold time, and the lifecycle skill references generated project
+files by their scaffold-relative paths.
 
 ## Known UX notes
 

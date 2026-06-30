@@ -1,5 +1,6 @@
 # Conditional file layout based on init parameters
-{{ $root_dir := .input_root_dir}}
+{{ $root_dir := .input_root_dir }}
+{{ $agent_dir := printf `%s/src/agents/%s` $root_dir .input_initial_agent_name }}
 
 # CICD platform selection — keep only the chosen platform's directory
 {{ if (or (eq .input_cicd_platform `github_actions`) (eq .input_cicd_platform `github_actions_for_github_enterprise_servers`)) }}
@@ -11,6 +12,40 @@
 {{ else if (eq .input_cicd_platform `gitlab`) }}
     {{ skip (printf `%s/%s` $root_dir `.github`) }}
     {{ skip (printf `%s/%s` $root_dir `.azure`) }}
+{{ end }}
+
+# --- Vector Search component ---
+{{ if (eq .input_use_vector_search `no`) }}
+    {{ skip (printf `%s/%s` $root_dir `src/components/retriever`) }}
+    {{ skip (printf `%s/%s` $root_dir `resources/vector_search.yml`) }}
+    {{ skip (printf `%s/%s` $root_dir `resources/data_pipeline.yml`) }}
+{{ end }}
+
+# --- UC Functions component ---
+{{ if (eq .input_use_uc_functions `no`) }}
+    {{ skip (printf `%s/%s` $root_dir `src/components/tools`) }}
+{{ end }}
+
+# UC function definition stubs — skip if they already exist in catalog
+{{ if (and (eq .input_use_uc_functions `yes`) (eq .input_uc_functions_exist `yes`)) }}
+    {{ skip (printf `%s/%s` $root_dir `src/components/tools/definitions`) }}
+{{ end }}
+
+# --- Per-agent eval ---
+# Skip dataset creation notebook if user already has a dataset
+{{ if (eq .input_eval_dataset_source `existing`) }}
+    {{ skip (printf `%s/%s` $agent_dir `eval/create_dataset.py`) }}
+{{ end }}
+
+# --- Lakebase ---
+{{ if (eq .input_use_lakebase `no`) }}
+    {{ skip (printf `%s/%s` $root_dir `resources/lakebase.yml`) }}
+{{ end }}
+
+# DLT pipeline + notebook — skip if user already has a chunked table
+{{ if (and (eq .input_use_vector_search `yes`) (eq .input_has_chunked_table `yes`)) }}
+    {{ skip (printf `%s/%s` $root_dir `src/components/retriever/data_pipeline.py`) }}
+    {{ skip (printf `%s/%s` $root_dir `resources/data_pipeline.yml`) }}
 {{ end }}
 
 # Remove template processing file itself

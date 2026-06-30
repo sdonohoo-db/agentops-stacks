@@ -1,6 +1,6 @@
 {
-  "welcome_message": "Welcome to AgentOps Stacks — a Declarative Automation Bundle template for production-ready AI projects.\n\nThis template generates the scaffold and CI/CD wiring for any AI solution. After init, develop your solution under src/ and use the agentops-stacks plugin (or your coding assistant) to apply evaluation, governance, and promotion patterns.",
-  "min_databricks_cli_version": "v0.295.0",
+  "welcome_message": "Welcome to AgentOps Stacks — a Declarative Automation Bundle template for production-ready AI agents on Databricks.\n\nThis template generates a multi-agent scaffold with shared components, CI/CD wiring, and per-agent Databricks Apps — all driven by your choices.",
+  "min_databricks_cli_version": "v1.1.0",
   "properties": {
     "input_project_name": {
       "order": 1,
@@ -16,20 +16,92 @@
       "default": "{{ .input_project_name }}",
       "description": "\nRoot directory name."
     },
-    "input_cloud": {
+    "input_initial_agent_name": {
       "order": 3,
       "type": "string",
-      "description": "\nCloud provider for the workspace. Determines CI/CD auth blocks.",
+      "default": "default",
+      "description": "\nName of the first agent. Additional agents can be added later.\ninput_initial_agent_name",
+      "pattern": "^[a-z][a-z0-9_]{2,}$",
+      "pattern_match_failure_message": "Agent name must start with a lowercase letter and contain only lowercase letters, digits, and underscores (min 3 chars)."
+    },
+    "input_cloud": {
+      "order": 4,
+      "type": "string",
+      "description": "\nCloud provider for the workspace. Determines CI/CD auth blocks.\ninput_cloud",
       "default": "aws",
       "enum": ["aws", "azure", "gcp"]
     },
     "input_cicd_platform": {
-      "order": 4,
+      "order": 5,
       "type": "string",
-      "description": "\nCI/CD platform for promotion workflows.",
+      "description": "\nCI/CD platform for promotion workflows.\ninput_cicd_platform",
       "default": "github_actions",
       "enum": ["github_actions", "github_actions_for_github_enterprise_servers", "azure_devops", "gitlab"]
+    },
+    "input_use_vector_search": {
+      "order": 6,
+      "type": "string",
+      "description": "\nInclude shared Vector Search component for unstructured data retrieval (RAG).\ninput_use_vector_search",
+      "default": "no",
+      "enum": ["yes", "no"]
+    },
+    "input_has_chunked_table": {
+      "order": 7,
+      "type": "string",
+      "description": "\nDo you already have a chunked Delta table to sync from? If no, the scaffold includes ingestion and preparation notebooks.\ninput_has_chunked_table",
+      "default": "no",
+      "enum": ["yes", "no"],
+      "skip_prompt_if": {
+        "properties": {
+          "input_use_vector_search": { "const": "no" }
+        }
+      }
+    },
+    "input_use_lakebase": {
+      "order": 8,
+      "type": "string",
+      "description": "\nInclude shared Lakebase (Postgres) component for agent memory (LangGraph checkpointer).\ninput_use_lakebase",
+      "default": "no",
+      "enum": ["yes", "no"]
+    },
+    "input_memory_type": {
+      "order": 9,
+      "type": "string",
+      "description": "\nType of agent memory to configure with Lakebase.\ninput_memory_type",
+      "default": "short_term",
+      "enum": ["short_term", "long_term", "both"],
+      "skip_prompt_if": {
+        "properties": {
+          "input_use_lakebase": { "const": "no" }
+        }
+      }
+    },
+    "input_use_uc_functions": {
+      "order": 10,
+      "type": "string",
+      "description": "\nInclude Unity Catalog function tool references as a shared component.\ninput_use_uc_functions",
+      "default": "no",
+      "enum": ["yes", "no"]
+    },
+    "input_uc_functions_exist": {
+      "order": 11,
+      "type": "string",
+      "description": "\nAre the UC functions already defined in your catalog? If no, the scaffold includes definition stubs.\ninput_uc_functions_exist",
+      "default": "no",
+      "enum": ["yes", "no"],
+      "skip_prompt_if": {
+        "properties": {
+          "input_use_uc_functions": { "const": "no" }
+        }
+      }
+    },
+    "input_eval_dataset_source": {
+      "order": 12,
+      "type": "string",
+      "description": "\nHow to create the evaluation dataset for this agent.\n  synthetic — generate a golden dataset using an LLM simulator\n  manual — scaffold a notebook with example rows to fill in manually\n  production_traces — build from production traces filtered by tag\n  existing — skip dataset creation (you already have one)\ninput_eval_dataset_source",
+      "default": "synthetic",
+      "enum": ["synthetic", "manual", "production_traces", "existing"]
     }
   },
-  "success_message": "\n*** AgentOps Stacks project created in '{{.input_root_dir}}' ***\n\nNext steps:\n  1. cd {{.input_root_dir}}\n  2. Review .agentops-stacks/manifest.yml and databricks.yml\n  3. Set workspace hosts and Unity Catalog grants (see docs/setup.md)\n  4. uv sync  (generates uv.lock — commit it)\n  5. databricks bundle validate -t dev"
+  "success_message": "\n*** AgentOps Stacks project created in '{{.input_root_dir}}' ***\n\nNext steps:\n  1. cd {{.input_root_dir}}/src/agents/{{.input_initial_agent_name}}\n  2. uv sync\n  3. cp .env.example .env  — configure Databricks auth\n  4. uv run python app/start_server.py  — run the agent locally\n  5. databricks bundle deploy -t dev  — deploy to Databricks\n\nYour agent: src/agents/{{.input_initial_agent_name}}/agent.py\nEval config: src/agents/{{.input_initial_agent_name}}/eval/gates.yml"
 }
