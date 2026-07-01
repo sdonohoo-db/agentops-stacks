@@ -17,7 +17,9 @@ import sys
 from pathlib import Path
 
 EVAL_DIR = Path(__file__).parent if "__file__" in dir() else Path(".")
+AGENT_DIR = EVAL_DIR.parent
 sys.path.insert(0, str(EVAL_DIR))
+sys.path.insert(0, str(AGENT_DIR))
 
 from utils import (
     load_gates,
@@ -96,10 +98,12 @@ import mlflow
 EXPERIMENT_NAME = "/Shared/{{ .input_project_name }}_{{ .input_initial_agent_name }}_eval"
 mlflow.set_experiment(EXPERIMENT_NAME)
 
-# TODO: Replace with actual agent invocation.
-def predict_fn(messages: list) -> str:
-    """Placeholder predict function. Replace with actual agent call."""
-    return "placeholder response"
+from graph import graph
+
+def predict_fn(inputs: dict) -> str:
+    """Invoke the compiled graph synchronously for evaluation."""
+    result = graph.invoke({"messages": inputs.get("messages", [])})
+    return result["messages"][-1].content
 
 results = mlflow.genai.evaluate(
     data=eval_df,

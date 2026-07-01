@@ -20,19 +20,16 @@ live here as standalone reference projects the user can adopt selectively.
 ## What each example contains
 
 Each example is a complete, checked-in scaffold + a specific solution +
-the production patterns applied against it:
+production patterns applied against it:
 
-- `databricks.yml`, `resources/`, CI/CD workflows — same shape as `bundle init`
-  produces
-- `src/` — minimal solution code (deliberately small)
-- `evaluation/`, `governance/`, `monitoring/`, `feedback/` — production
-  patterns applied to this specific solution
+- `databricks.yml`, `resources/`, CI/CD workflows — same shape as `bundle init` produces
+- `src/agents/<name>/` — agent code (graph, tools, eval harness)
+- `src/components/` — shared components used by the example (retriever, memory, UC functions)
 - `README.md` — what this example demonstrates and the recipe to reproduce it
 
 Examples are the development testbed for production patterns. Each example
-demonstrates a specific pattern (eval gates, governance posture, monitoring,
-feedback loops) applied to a concrete agent, so the pattern contracts can be
-exercised end-to-end before being formalized into authoring skills.
+demonstrates a specific pattern applied to a concrete agent, so the contracts
+can be exercised end-to-end before being formalized into authoring skills.
 
 ## How to adopt an example
 
@@ -52,8 +49,4 @@ files into your existing scaffold.
 
 ## Current examples
 
-| Example | What it demonstrates | Patterns applied |
-|---------|----------------------|------------------|
-| [`hello-agent/`](hello-agent/) | Minimal pyfunc agent registered to UC — the simplest closed loop | Evaluation |
-
-More examples will land as the pattern set grows.
+Examples are coming. The scaffold ships a working agent out of the box — run `databricks bundle init` and follow `docs/setup.md` to get started.

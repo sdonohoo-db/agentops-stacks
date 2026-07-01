@@ -1,5 +1,0 @@
-{"query": "hello", "expected_response": "Hello! You said: hello"}
-{"query": "what is your name?", "expected_response": "Hello! You said: what is your name?"}
-{"query": "tell me about agentops-stacks", "expected_response": "Hello! You said: tell me about agentops-stacks"}
-{"query": "goodbye", "expected_response": "Hello! You said: goodbye"}
-{"query": "", "expected_response": "Hello! You said: "}

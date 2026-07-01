@@ -1,8 +1,0 @@
-# AgentOps Stacks plugin recognition marker.
-# The agentops-stacks plugin (when installed) reads and updates this file.
-# Safe to ignore until you install the plugin; safe to hand-edit if you know what you're doing.
-contract_version: 1
-created_by: cli
-project_name: hello_agent
-cicd_platform: github_actions
-cloud: azure
