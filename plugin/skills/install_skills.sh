@@ -22,7 +22,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-SKILL_NAMES=("agentops-stacks" "agentops-lifecycle")
+SKILL_NAMES=("agentops-stacks" "agentops-lifecycle" "add-agent" "vector-search-ops" "lakebase-ops" "uc-functions-ops")
 SKILLS_DIR=".claude/skills"
 INSTALL_TO_GENIE=false
 DB_PROFILE="${DATABRICKS_CONFIG_PROFILE:-DEFAULT}"
@@ -49,6 +49,10 @@ show_help() {
     echo -e "${GREEN}Available skills:${NC}"
     echo "  - agentops-stacks:    Scaffold a new DAB project with CI/CD and UC conventions"
     echo "  - agentops-lifecycle: Guide an existing scaffold through the 10-step dev→prod lifecycle"
+    echo "  - add-agent:          Add a second agent to an existing scaffold"
+    echo "  - vector-search-ops:  Operate and troubleshoot the Vector Search component"
+    echo "  - lakebase-ops:       Operate and troubleshoot the Lakebase memory component"
+    echo "  - uc-functions-ops:   Register, grant, and manage UC function tools"
     echo ""
 }
 
@@ -60,6 +64,18 @@ list_skills() {
     echo ""
     echo -e "  ${GREEN}agentops-lifecycle${NC}"
     echo "    10-step lifecycle guide: data prep → agent dev → eval gate → CI → staging → prod monitoring"
+    echo ""
+    echo -e "  ${GREEN}add-agent${NC}"
+    echo "    Add a second agent to an existing scaffold"
+    echo ""
+    echo -e "  ${GREEN}vector-search-ops${NC}"
+    echo "    Check index status, trigger sync, test retriever, update DLT pipeline"
+    echo ""
+    echo -e "  ${GREEN}lakebase-ops${NC}"
+    echo "    Check connection health, refresh credentials, inspect/clear checkpointer tables"
+    echo ""
+    echo -e "  ${GREEN}uc-functions-ops${NC}"
+    echo "    Register new functions, update EXECUTE grants, list registered UC tools"
     echo ""
 }
 
